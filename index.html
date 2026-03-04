@@ -123,18 +123,18 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // 10社のデータ定義と変動アルゴリズムのパラメータ
+    // 10社のデータ定義と変動アルゴリズムのパラメータ（★dividend: 配当金を追加）
     const stockInfo = {
-      ontama: { id: 1, name: 'おんたま社', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '🥚', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5 },
-      gosho: { id: 2, name: 'ブルベリカンパニー', desc: 'ふつうの かいしゃ。すこし ねだんが うごく。', color: '#3D405B', icon: '🎒', basePrice: 200, trendCycle: 30, trendAmp: 40, waveCycle: 14, waveAmp: 20, noise: 10 },
-      vegetable: { id: 3, name: 'まほうのやさい', desc: 'ねだんが はげしく うごく！あぶないかも？', color: '#E07A5F', icon: '🥦', basePrice: 80, trendCycle: 20, trendAmp: 40, waveCycle: 6, waveAmp: 30, noise: 20 },
-      terracotta: { id: 4, name: 'いちご文具', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5 },
-      sagefarm: { id: 5, name: 'パンダ農園', desc: '上がったり 下がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5 },
-      mustard: { id: 6, name: 'りんご商事', desc: 'あんていしているが、たまに すごく 高くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10 }, 
-      blue: { id: 7, name: 'パイン工業', desc: 'ねだんが 高い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15 },
-      cream: { id: 8, name: 'オレンジ出版', desc: 'やすい から はじめてでも 買いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5 },
-      hotspring: { id: 9, name: 'わくわく温泉', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80 },
-      miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく 高い！ お金もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50 }
+      ontama: { id: 1, name: 'おんたま社', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '🥚', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5, dividend: 2 },
+      gosho: { id: 2, name: 'ブルベリカンパニー', desc: 'ふつうの かいしゃ。すこし ねだんが うごく。', color: '#3D405B', icon: '🎒', basePrice: 200, trendCycle: 30, trendAmp: 40, waveCycle: 14, waveAmp: 20, noise: 10, dividend: 4 },
+      vegetable: { id: 3, name: 'まほうのやさい', desc: 'ねだんが はげしく うごく！あぶないかも？', color: '#E07A5F', icon: '🥦', basePrice: 80, trendCycle: 20, trendAmp: 40, waveCycle: 6, waveAmp: 30, noise: 20, dividend: 0 },
+      terracotta: { id: 4, name: 'りんご文具', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5, dividend: 3 },
+      sagefarm: { id: 5, name: 'パンダ農園', desc: '上がったり 下がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
+      mustard: { id: 6, name: 'パイン商事', desc: 'あんていしているが、たまに すごく 高くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10, dividend: 5 }, 
+      blue: { id: 7, name: 'レモン工業', desc: 'ねだんが 高い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15, dividend: 15 },
+      cream: { id: 8, name: 'オレンジ出版', desc: 'やすい から はじめてでも 買いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5, dividend: 1 },
+      hotspring: { id: 9, name: 'わくわく温泉', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80, dividend: 0 },
+      miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく 高い！ お金もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50, dividend: 50 } // ★高配当
     };
 
     // 基準日からの経過ステップ（半日単位）を計算する関数
@@ -243,6 +243,42 @@
         setHistoryData(newHistory);
       }, [currentStep, selectedStock]);
 
+      // --- ★配当金（ボーナス）付与ロジック ---
+      useEffect(() => {
+        if (isLoading) return;
+
+        const day = currentDate.getDate();
+        // 毎月10日と20日を配当日とする
+        if (day === 10 || day === 20) {
+          const year = currentDate.getFullYear();
+          const month = currentDate.getMonth();
+          const dateStr = `${year}-${month}-${day}`;
+          const lastDividend = localStorage.getItem('ontama_last_dividend');
+          
+          // その日の配当金をまだ受け取っていない場合のみ処理
+          if (lastDividend !== dateStr) {
+            let totalDividend = 0;
+            Object.keys(portfolio).forEach(key => {
+              if (portfolio[key] > 0 && stockInfo[key].dividend > 0) {
+                totalDividend += portfolio[key] * stockInfo[key].dividend;
+              }
+            });
+            
+            if (totalDividend > 0) {
+              setCoin(prevCoin => {
+                const newCoin = prevCoin + totalDividend;
+                localStorage.setItem('ontama_coin', newCoin.toString());
+                return newCoin;
+              });
+              showMessage(`🎁 会社から「はいとうきん」として\n${totalDividend.toLocaleString()} コイン もらったよ！`);
+            }
+            // 配当を受け取った（または持っていなかった）記録を残す
+            localStorage.setItem('ontama_last_dividend', dateStr);
+          }
+        }
+      }, [currentDate, portfolio, isLoading]);
+
+
       // --- 自動でタブをスクロールして真ん中にする ---
       useEffect(() => {
         if (gameState === 'MARKET' && tabContainerRef.current) {
@@ -267,7 +303,7 @@
 
       const showMessage = (text) => {
         setMessage(text);
-        setTimeout(() => setMessage(''), 3000);
+        setTimeout(() => setMessage(''), 3500);
       };
 
       const exchange = (amount, type) => {
@@ -657,22 +693,30 @@
                   onMouseUp={handleTouchEnd}
                   onMouseLeave={handleTouchEnd}
                 >
-                  <div className="relative w-full aspect-[3/1] min-h-[100px] max-h-[140px] bg-white rounded-xl shadow-inner border border-gray-200 mb-3 p-1.5 shrink-0 pointer-events-none">
+                  <div className="relative w-full aspect-[3/1] min-h-[100px] max-h-[140px] bg-white rounded-xl shadow-inner border border-gray-200 mb-2 p-1.5 shrink-0 pointer-events-none">
                     <canvas ref={canvasRef} className="w-full h-full"></canvas>
                   </div>
 
                   <div className="bg-white p-3 rounded-xl shadow-sm border-2 mb-2 flex-1 flex flex-col" style={{ borderColor: stockInfo[selectedStock].color }}>
-                    <div className="flex items-center justify-between mb-2 pointer-events-none">
+                    <div className="flex items-center justify-between mb-1 pointer-events-none">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{stockInfo[selectedStock].icon}</span>
                         <h3 className="font-bold text-base sm:text-lg" style={{ color: stockInfo[selectedStock].color }}>{stockInfo[selectedStock].name}</h3>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 font-bold mb-3 bg-gray-50 p-2 rounded pointer-events-none">{stockInfo[selectedStock].desc}</p>
                     
-                    <div className="flex justify-around items-stretch mb-3 gap-2 pointer-events-none">
+                    <p className="text-xs text-gray-600 font-bold mb-1 bg-gray-50 p-1.5 rounded pointer-events-none">{stockInfo[selectedStock].desc}</p>
+                    
+                    {/* ★配当金のアピール表示 */}
+                    {stockInfo[selectedStock].dividend > 0 && (
+                      <div className="bg-mustard/20 text-yellow-700 px-2 py-1 rounded text-[10px] sm:text-xs font-bold mb-2 flex items-center gap-1 pointer-events-none border border-mustard/30">
+                        <span>🎁</span> 毎月10日・20日に 1かぶ {stockInfo[selectedStock].dividend} コインもらえる！
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-around items-stretch mb-3 gap-2 pointer-events-none mt-auto">
                       <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner">
-                        <p className="text-xs sm:text-sm text-gray-500 font-bold mb-1">いまの ねだん (1かぶ)</p>
+                        <p className="text-xs sm:text-sm text-gray-500 font-bold mb-1">いまの ねだん</p>
                         <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
                           {currentPrice} <span className="text-sm">コイン</span>
                         </p>
@@ -685,7 +729,7 @@
                       </div>
                     </div>
 
-                    <div className="flex gap-3 mt-auto shrink-0">
+                    <div className="flex gap-3 shrink-0">
                       <button 
                         onClick={buyStock}
                         onMouseDown={(e) => e.stopPropagation()}
@@ -747,28 +791,46 @@
                       
                       return (
                         <div key={key} className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-2 mb-3 flex items-center justify-between animate-pop-in" style={{ borderColor: info.color }}>
-                          <div className="flex items-center gap-3 sm:gap-4">
-                            <span className="text-3xl sm:text-4xl bg-gray-50 p-2 rounded-lg">{info.icon}</span>
+                          <div className="flex items-center gap-2 sm:gap-4 flex-1">
+                            <span className="text-3xl sm:text-4xl bg-gray-50 p-2 rounded-lg shrink-0">{info.icon}</span>
                             <div>
                               <p className="font-bold text-base sm:text-lg mb-1 leading-none" style={{ color: info.color }}>{info.name}</p>
-                              <p className="text-xs sm:text-sm text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded inline-block">
-                                {price} コイン × <span className="text-bluegrey text-base">{qty}</span> かぶ
+                              <p className="text-[10px] sm:text-sm text-gray-500 font-bold bg-gray-100 px-1.5 py-0.5 rounded inline-block">
+                                {price} コイン × <span className="text-bluegrey text-sm sm:text-base">{qty}</span> かぶ
                               </p>
+                              {/* ★一覧画面での配当金アピール */}
+                              {info.dividend > 0 && (
+                                <p className="text-[9px] sm:text-[10px] text-yellow-600 font-bold mt-1">
+                                  🎁 次のはいとうきん: {info.dividend * qty} コイン
+                                </p>
+                              )}
                             </div>
                           </div>
-                          <div className="text-right flex flex-col items-end gap-2 shrink-0">
-                            <div className="text-center">
+                          
+                          <div className="text-right flex flex-col items-end gap-1.5 shrink-0 ml-2">
+                            <div className="text-center w-full mb-1">
                               <p className="text-[10px] text-gray-400 font-bold leading-none mb-1">ぜんぶで</p>
-                              <p className="font-bold text-bluegrey text-xl sm:text-2xl leading-none">
+                              <p className="font-bold text-bluegrey text-lg sm:text-2xl leading-none">
                                 {total.toLocaleString()} <span className="text-xs">C</span>
                               </p>
                             </div>
-                            <button 
-                              onClick={() => sellSpecificStockAll(key)}
-                              className="bg-sage text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold shadow-sm active:scale-95 transition-transform"
-                            >
-                              このかぶを売る
-                            </button>
+                            <div className="flex flex-col gap-1 w-full">
+                              <button 
+                                onClick={() => {
+                                  setSelectedStock(key);
+                                  setGameState('MARKET');
+                                }}
+                                className="bg-bluegrey text-white px-2 py-1.5 rounded-md text-[10px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform w-full text-center"
+                              >
+                                📈 かぶかをかくにん
+                              </button>
+                              <button 
+                                onClick={() => sellSpecificStockAll(key)}
+                                className="bg-sage text-white px-2 py-1.5 rounded-md text-[10px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform w-full text-center"
+                              >
+                                💰 このかぶを売る
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )
@@ -797,17 +859,18 @@
                 ← もどる
               </button>
               
-              <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-4 relative animate-open-note border border-white overflow-hidden">
+              <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-2 sm:p-4 relative animate-open-note border border-white overflow-hidden">
                 <div className="masking-tape masking-tape-mustard"></div>
-                <h2 className="text-2xl font-bold text-center text-bluegrey mb-4 mt-2 shrink-0">📖 つかいかた</h2>
+                <h2 className="text-2xl font-bold text-center text-bluegrey mb-2 mt-6 shrink-0">📖 つかいかた</h2>
                 
-                <div className="flex-1 overflow-y-auto pb-4 pr-1">
+                <div className="flex-1 overflow-y-auto pb-4 px-4 pt-4">
+                  
                   {/* Step 1 */}
-                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-sage mb-4 relative mt-3">
-                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-sage text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm">1</div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-sage mb-6 relative">
+                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-sage text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">1</div>
                     <h3 className="font-bold text-lg text-sage mb-2 pl-3">コインを じゅんび しよう！</h3>
                     <p className="text-sm text-gray-700 mb-3 pl-3">「りょうがえじょ」で、ドリルでためたスコアを コイン にかえよう。</p>
-                    <div className="flex justify-center items-center gap-4 bg-gray-50 py-3 rounded-lg border border-gray-100 mx-3">
+                    <div className="flex justify-center items-center gap-4 bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3">
                       <div className="text-center">
                          <p className="text-xs text-gray-500 font-bold">スコア</p>
                          <p className="text-2xl font-bold text-sage">100</p>
@@ -821,11 +884,11 @@
                   </div>
 
                   {/* Step 2 */}
-                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-terracotta mb-4 relative mt-3">
-                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-terracotta text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm">2</div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-terracotta mb-6 relative">
+                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-terracotta text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">2</div>
                     <h3 className="font-bold text-lg text-terracotta mb-2 pl-3">「かぶ」を 買ってみよう！</h3>
                     <p className="text-sm text-gray-700 mb-3 pl-3">「マーケット」で会社をえらんで かぶ を買おう。ねだんは <b>１日に２回（ごぜん・ごご）</b> かわるよ。</p>
-                    <div className="flex justify-around items-center bg-gray-50 py-3 rounded-lg border border-gray-100 mx-3">
+                    <div className="flex justify-around items-center bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3">
                       <div className="text-center">
                         <span className="text-3xl">🥚</span>
                         <p className="text-[10px] font-bold text-gray-600 mt-1">あんしん</p>
@@ -842,16 +905,31 @@
                   </div>
 
                   {/* Step 3 */}
-                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mb-4 relative mt-3">
-                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm">3</div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mb-6 relative">
+                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">3</div>
                     <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">ねだんが 上がったら 売ろう！</h3>
                     <p className="text-sm text-gray-700 mb-3 pl-3">買ったときより <b>ねだんが高いとき</b> に売ると、コインがふえるよ！ ふやしたコインは スコア にもどそう。</p>
                     
-                    <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100 mx-3">
+                    <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100 mx-1 sm:mx-3">
                       <span className="text-2xl sm:text-3xl">⚠️</span>
                       <p className="text-xs sm:text-sm text-red-600 font-bold leading-tight">ねだんが 下がったときに売ると、コインが へっちゃうから 気をつけてね！</p>
                     </div>
                   </div>
+
+                  {/* ★Step 4 (配当金の説明) */}
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-mustard mb-2 relative">
+                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-mustard text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">4</div>
+                    <h3 className="font-bold text-lg text-yellow-600 mb-2 pl-3">はいとうきん（ボーナス）！</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3">毎月 <b>10日</b> と <b>20日</b> に、持っている かぶ の数だけ「はいとうきん」がもらえるよ！ 高いかぶほど、たくさんもらえるかも？</p>
+                    <div className="flex justify-center items-center gap-2 bg-yellow-50 py-3 rounded-lg border border-yellow-100 mx-1 sm:mx-3 text-center">
+                      <span className="text-3xl">🧸</span>
+                      <span className="text-xl font-bold text-yellow-600">＋</span>
+                      <span className="text-3xl">🎁</span>
+                      <span className="text-xl font-bold text-yellow-600">＝</span>
+                      <span className="text-3xl">💰</span>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
