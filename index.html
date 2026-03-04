@@ -106,7 +106,7 @@
       border-radius: 0.5rem;
     }
 
-    /* スクロールバー非表示 */
+    /* スクロールバー非表示設定 */
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
     }
@@ -123,15 +123,13 @@
     const { useState, useEffect, useRef } = React;
 
     // 10社のデータ定義と変動アルゴリズムのパラメータ
-    // basePrice: 基準価格, trendCycle: 大きな波の周期(半日単位), trendAmp: 大きな波の幅
-    // waveCycle: 小さな波の周期, waveAmp: 小さな波の幅, noise: ランダムなブレ幅
     const stockInfo = {
       ontama: { id: 1, name: 'おんたま社', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '🥚', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5 },
       gosho: { id: 2, name: '五小カンパニー', desc: 'ふつうの かいしゃ。すこし ねだんが うごく。', color: '#3D405B', icon: '🎒', basePrice: 200, trendCycle: 30, trendAmp: 40, waveCycle: 14, waveAmp: 20, noise: 10 },
       vegetable: { id: 3, name: 'まほうのやさい', desc: 'ねだんが はげしく うごく！あぶないかも？', color: '#E07A5F', icon: '🥦', basePrice: 80, trendCycle: 20, trendAmp: 40, waveCycle: 6, waveAmp: 30, noise: 20 },
       terracotta: { id: 4, name: 'テラコッタ文具', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5 },
       sagefarm: { id: 5, name: 'セージ農園', desc: '上がったり 下がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5 },
-      mustard: { id: 6, name: 'マスタード商事', desc: 'あんていしているが、たまに すごく 高くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10 }, // 独自の急騰ロジックあり
+      mustard: { id: 6, name: 'マスタード商事', desc: 'あんていしているが、たまに すごく 高くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10 }, 
       blue: { id: 7, name: 'ブルー工業', desc: 'ねだんが 高い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15 },
       cream: { id: 8, name: 'クリーム出版', desc: 'やすい から はじめてでも 買いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5 },
       hotspring: { id: 9, name: 'わくわく温泉', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80 },
@@ -140,38 +138,32 @@
 
     // 基準日からの経過ステップ（半日単位）を計算する関数
     const getStepFromDate = (date) => {
-      const baseDate = new Date(2024, 0, 1); // 2024年1月1日を基準とする
+      const baseDate = new Date(2024, 0, 1); 
       const diffTime = date.getTime() - baseDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       const isAfternoon = date.getHours() >= 12;
       return diffDays * 2 + (isAfternoon ? 1 : 0);
     };
 
-    // 特定のステップの価格を計算するアルゴリズム（何度実行しても同じ結果になる）
+    // 特定のステップの価格を計算するアルゴリズム
     const calculatePrice = (stockKey, step) => {
       const info = stockInfo[stockKey];
       
-      // 擬似乱数ジェネレータ (-1.0 ~ 1.0)
       const noiseFunc = (s) => {
         let x = Math.sin(info.id * 1234.5678 + s * 9876.5432) * 10000;
         return (x - Math.floor(x)) * 2 - 1.0;
       };
 
-      // トレンドの波（ゆっくり）
       const trend = Math.sin(step * (Math.PI * 2 / info.trendCycle)) * info.trendAmp;
-      // 短期的な波（はやい）
       const wave = Math.sin(step * (Math.PI * 2 / info.waveCycle)) * info.waveAmp;
-      // ランダムなノイズ
       const noise = noiseFunc(step) * info.noise;
 
       let price = Math.floor(info.basePrice + trend + wave + noise);
 
-      // ギミック：マスタード商事はたまに急騰する
       if (stockKey === 'mustard' && noiseFunc(step * 1.13) > 0.85) {
         price += 400; 
       }
 
-      // 下限値
       if (price < 5) price = 5;
       
       return price;
@@ -181,10 +173,9 @@
       const [gameState, setGameState] = useState('TITLE'); // TITLE, EXCHANGE, MARKET
       const [isLoading, setIsLoading] = useState(true);
       
-      const [score, setScore] = useState(0); // ポータル共通のスコア
-      const [coin, setCoin] = useState(0);   // アプリ内通貨
+      const [score, setScore] = useState(0); 
+      const [coin, setCoin] = useState(0);   
       
-      // 10社分の初期ポートフォリオを作成
       const initialPortfolio = Object.keys(stockInfo).reduce((acc, key) => {
         acc[key] = 0;
         return acc;
@@ -194,14 +185,12 @@
       const [selectedStock, setSelectedStock] = useState('ontama');
       const [message, setMessage] = useState('');
       
-      // 日付とステップの管理
       const [currentDate, setCurrentDate] = useState(new Date());
       const [currentStep, setCurrentStep] = useState(getStepFromDate(new Date()));
-      const [historyData, setHistoryData] = useState([]); // チャート描画用データ
+      const [historyData, setHistoryData] = useState([]); 
 
       const canvasRef = useRef(null);
 
-      // --- 初期読み込みと時刻監視 ---
       useEffect(() => {
         const loadData = () => {
           const savedScore = parseInt(localStorage.getItem('gogo_drill_score') || '0', 10);
@@ -210,7 +199,6 @@
           
           if (savedPortfolioStr) {
             const parsed = JSON.parse(savedPortfolioStr);
-            // 新しい会社が追加された場合のフォールバック
             const mergedPortfolio = { ...initialPortfolio, ...parsed };
             setPortfolio(mergedPortfolio);
           }
@@ -218,12 +206,11 @@
           setScore(savedScore);
           setCoin(savedCoin);
           
-          setTimeout(() => setIsLoading(false), 800);
+          setTimeout(() => setIsLoading(false), 500);
         };
         
         loadData();
 
-        // 1分ごとに日付・時刻（午前/午後）が変わっていないかチェックする
         const timer = setInterval(() => {
           const now = new Date();
           const step = getStepFromDate(now);
@@ -236,9 +223,7 @@
         return () => clearInterval(timer);
       }, [currentStep]);
 
-      // --- チャート履歴の生成 ---
       useEffect(() => {
-        // 現在のステップから過去14ステップ（7日分）の価格履歴を計算
         const newHistory = [];
         const pastSteps = 14; 
         
@@ -251,7 +236,6 @@
         setHistoryData(newHistory);
       }, [currentStep, selectedStock]);
 
-      // --- スコア・コイン・ポートフォリオの保存処理 ---
       const updateAssets = (newScore, newCoin) => {
         setScore(newScore);
         setCoin(newCoin);
@@ -269,7 +253,6 @@
         setTimeout(() => setMessage(''), 3000);
       };
 
-      // --- 両替処理 ---
       const exchange = (amount, type) => {
         if (type === 'TO_COIN') {
           if (score >= amount) {
@@ -288,7 +271,6 @@
         }
       };
 
-      // --- 売買処理 ---
       const currentPrice = historyData.length > 0 ? historyData[historyData.length - 1].price : 0;
 
       const buyStock = () => {
@@ -334,7 +316,6 @@
         }
       };
 
-      // --- グラフの描画 ---
       useEffect(() => {
         if (gameState !== 'MARKET' || !canvasRef.current || historyData.length === 0) return;
         
@@ -345,7 +326,6 @@
         
         ctx.clearRect(0, 0, width, height);
         
-        // 背景のグリッド線とラベル（月〜金などをイメージ）
         ctx.strokeStyle = '#e5e7eb';
         ctx.lineWidth = 1;
         ctx.beginPath();
@@ -355,7 +335,6 @@
           ctx.lineTo(width, y);
         }
         
-        // 縦の区切り線（1日ごと = 2ステップごと）
         for(let i=0; i<historyData.length; i++) {
           if (i % 2 === 0) {
             const x = (width / (historyData.length - 1)) * i;
@@ -373,7 +352,6 @@
         
         const stepX = width / (prices.length - 1);
         
-        // 折れ線を描画
         ctx.beginPath();
         ctx.strokeStyle = stockInfo[selectedStock].color;
         ctx.lineWidth = 4;
@@ -388,7 +366,6 @@
         });
         ctx.stroke();
 
-        // 最新の価格の丸ポチを描画
         const lastVal = prices[prices.length - 1];
         const lastX = (prices.length - 1) * stepX;
         const lastY = height - ((lastVal - displayMin) / range) * height;
@@ -398,7 +375,6 @@
         ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
         ctx.fill();
 
-        // 過去・今の文字
         ctx.fillStyle = '#9ca3af';
         ctx.font = '10px sans-serif';
         ctx.fillText('1しゅうかん前', 5, height - 5);
@@ -411,7 +387,6 @@
         window.location.href = 'https://hot-spring-egg.github.io/5sho-drill/';
       };
 
-      // 現在の日付文字列生成
       const dateStr = `${currentDate.getMonth() + 1}月${currentDate.getDate()}日`;
       const timeStr = currentDate.getHours() < 12 ? 'ごぜん' : 'ごご';
 
@@ -424,25 +399,28 @@
         );
       }
 
+      // ★よりコンパクトにしたステータスヘッダー
       const StatusHeader = () => (
-        <div className="flex justify-between items-center bg-white/90 px-6 py-3 rounded-full shadow-md w-full max-w-2xl mb-4 border-2 border-gray-200 z-20 shrink-0">
-          <div className="text-center">
-            <p className="text-xs font-bold text-gray-500">ドリル スコア</p>
-            <p className="text-2xl font-bold text-sage">{score.toLocaleString()}</p>
+        <div className="flex justify-around items-center bg-white/95 px-4 py-2 rounded-full shadow-sm w-full max-w-2xl mb-2 border border-gray-200 z-20 shrink-0">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold text-gray-500 hidden sm:inline">ドリル スコア</span>
+            <span className="text-[10px] font-bold text-gray-500 sm:hidden">スコア</span>
+            <span className="text-xl font-bold text-sage">{score.toLocaleString()}</span>
           </div>
-          <div className="text-2xl text-gray-300">|</div>
-          <div className="text-center">
-            <p className="text-xs font-bold text-gray-500">おんたま コイン</p>
-            <p className="text-2xl font-bold text-terracotta">{coin.toLocaleString()}</p>
+          <div className="text-gray-300">|</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[10px] font-bold text-gray-500 hidden sm:inline">おんたま コイン</span>
+            <span className="text-[10px] font-bold text-gray-500 sm:hidden">コイン</span>
+            <span className="text-xl font-bold text-terracotta">{coin.toLocaleString()}</span>
           </div>
         </div>
       );
 
       return (
-        <div className="w-full h-full flex flex-col items-center p-4 relative bg-cork overflow-hidden">
+        <div className="w-full h-full flex flex-col items-center p-3 relative bg-cork overflow-hidden">
           
           {message && (
-            <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-bluegrey text-white px-6 py-3 rounded-full shadow-2xl font-bold z-50 animate-pop-in text-center whitespace-pre-wrap border-2 border-white w-max max-w-[90%]">
+            <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-bluegrey text-white px-6 py-3 rounded-full shadow-2xl font-bold z-50 animate-pop-in text-center whitespace-pre-wrap border-2 border-white w-max max-w-[90%]">
               {message}
             </div>
           )}
@@ -479,21 +457,21 @@
 
           {gameState === 'EXCHANGE' && (
             <div className="w-full h-full flex flex-col items-center">
-              <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-2 rounded-full font-bold shadow-sm mb-4">
+              <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-1.5 rounded-full text-sm font-bold shadow-sm mb-2">
                 ← もどる
               </button>
 
               <StatusHeader />
 
-              <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-4 sm:p-6 relative animate-open-note border border-white overflow-y-auto">
+              <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-4 relative animate-open-note border border-white overflow-y-auto">
                 <div className="masking-tape masking-tape-mustard"></div>
-                <h2 className="text-2xl font-bold text-center text-bluegrey mb-6 mt-4">🏦 りょうがえじょ</h2>
+                <h2 className="text-2xl font-bold text-center text-bluegrey mb-4 mt-2">🏦 りょうがえじょ</h2>
                 
                 <p className="text-center text-sm text-gray-600 mb-6 font-bold">ドリルでためた「スコア」と、<br/>かぶを買うための「コイン」を こうかんします。</p>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 relative overflow-hidden">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-2 h-full bg-sage"></div>
-                  <h3 className="font-bold text-sage mb-4 pl-4">スコア を コイン にする</h3>
+                  <h3 className="font-bold text-sage mb-3 pl-4">スコア を コイン にする</h3>
                   <div className="flex flex-wrap justify-center gap-3">
                     <button onClick={() => exchange(10, 'TO_COIN')} className="bg-sage text-white px-4 py-2 rounded-lg font-bold active:scale-95 transition-transform flex-1 min-w-[120px]">
                       10 スコア ➡
@@ -504,9 +482,9 @@
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-6 relative overflow-hidden">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-2 h-full bg-terracotta"></div>
-                  <h3 className="font-bold text-terracotta mb-4 pl-4">コイン を スコア にもどす</h3>
+                  <h3 className="font-bold text-terracotta mb-3 pl-4">コイン を スコア にもどす</h3>
                   <div className="flex flex-wrap justify-center gap-3">
                     <button onClick={() => exchange(10, 'TO_SCORE')} className="bg-terracotta text-white px-4 py-2 rounded-lg font-bold active:scale-95 transition-transform flex-1 min-w-[120px]">
                       ⬅ 10 コイン
@@ -517,7 +495,7 @@
                   </div>
                 </div>
 
-                <div className="mt-auto flex justify-center">
+                <div className="mt-auto flex justify-center pb-2">
                   <button 
                     onClick={() => setGameState('MARKET')}
                     className="w-full sm:w-auto px-10 py-3 bg-bluegrey text-white rounded-full font-bold shadow-md active:translate-y-1 border-2 border-white"
@@ -531,81 +509,91 @@
 
           {gameState === 'MARKET' && (
             <div className="w-full h-full flex flex-col items-center">
-              <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-2 rounded-full font-bold shadow-sm mb-2">
+              <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-1.5 rounded-full text-sm font-bold shadow-sm mb-2">
                 ← もどる
               </button>
 
               <StatusHeader />
 
-              <div className="w-full max-w-3xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-3 sm:p-5 relative animate-open-note border border-white overflow-hidden">
+              <div className="w-full max-w-3xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-3 relative animate-open-note border border-white overflow-hidden">
                 <div className="masking-tape"></div>
                 
-                <div className="flex justify-between items-end mt-4 mb-3">
-                  <h2 className="text-xl sm:text-2xl font-bold text-bluegrey">🛒 マーケット</h2>
+                <div className="flex justify-between items-end mt-3 mb-2">
+                  <h2 className="text-xl font-bold text-bluegrey">🛒 マーケット</h2>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500 font-bold mb-1">いまの じかん</p>
-                    <p className="text-base font-bold text-bluegrey bg-white px-3 py-1 rounded-full shadow-sm border border-gray-200">
+                    <p className="text-[10px] text-gray-500 font-bold mb-0.5">いまの じかん</p>
+                    <p className="text-sm font-bold text-bluegrey bg-white px-2 py-0.5 rounded-full shadow-sm border border-gray-200">
                       📅 {dateStr} {timeStr}
                     </p>
                   </div>
                 </div>
 
-                {/* 10社の銘柄選択タブ（横スクロール） */}
-                <div className="flex gap-2 mb-3 overflow-x-auto pb-3 scrollbar-hide -mx-3 px-3 sm:mx-0 sm:px-0">
+                {/* ★10社の銘柄選択タブ（横スクロール・スナップ対応でわかりやすく） */}
+                <div className="flex gap-2 mb-2 overflow-x-auto pb-3 pt-1 scrollbar-hide snap-x snap-mandatory">
                   {Object.entries(stockInfo).map(([key, info]) => (
                     <button
                       key={key}
                       onClick={() => setSelectedStock(key)}
-                      className={`flex flex-col items-center justify-center min-w-[80px] p-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all border-2 ${
+                      className={`snap-center flex flex-col items-center justify-center min-w-[76px] p-2 rounded-xl font-bold whitespace-nowrap transition-all border-2 shrink-0 relative ${
                         selectedStock === key 
-                          ? 'bg-white shadow-md border-bluegrey text-bluegrey transform scale-105' 
-                          : 'bg-gray-100 border-transparent text-gray-500 hover:bg-white'
+                          ? 'bg-white shadow-md border-bluegrey text-bluegrey transform scale-105 z-10' 
+                          : 'bg-gray-100 border-transparent text-gray-500 hover:bg-white opacity-80'
                       }`}
                     >
                       <span className="text-2xl mb-1">{info.icon}</span>
                       <span className="text-[10px] leading-tight text-center w-full overflow-hidden text-ellipsis">{info.name}</span>
-                      {/* 所有している場合は小さく表示 */}
+                      {/* 所有バッジ */}
                       {portfolio[key] > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-terracotta text-white text-[9px] px-1.5 rounded-full">{portfolio[key]}</span>
+                        <span className="absolute -top-1.5 -right-1.5 bg-terracotta text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-sm border border-white">
+                          {portfolio[key]}
+                        </span>
                       )}
                     </button>
                   ))}
+                  {/* スクロール用の余白 */}
+                  <div className="min-w-[10px] shrink-0"></div>
                 </div>
 
-                {/* チャートエリア */}
-                <div className="relative w-full aspect-[21/9] sm:aspect-[3/1] min-h-[120px] bg-white rounded-xl shadow-inner border border-gray-200 mb-4 p-2 shrink-0">
+                {/* チャートエリア（高さを少し抑える） */}
+                <div className="relative w-full aspect-[3/1] min-h-[100px] max-h-[140px] bg-white rounded-xl shadow-inner border border-gray-200 mb-3 p-1.5 shrink-0">
                   <canvas ref={canvasRef} className="w-full h-full"></canvas>
                 </div>
 
-                {/* 株の情報と操作 */}
-                <div className="bg-white p-3 sm:p-4 rounded-xl shadow-sm border-2 mb-3 flex-1 flex flex-col overflow-y-auto" style={{ borderColor: stockInfo[selectedStock].color }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-2xl">{stockInfo[selectedStock].icon}</span>
-                    <h3 className="font-bold text-lg" style={{ color: stockInfo[selectedStock].color }}>{stockInfo[selectedStock].name}</h3>
-                  </div>
-                  <p className="text-xs text-gray-600 font-bold mb-4 bg-gray-50 p-2 rounded">{stockInfo[selectedStock].desc}</p>
-                  
-                  <div className="flex justify-around items-center mb-4">
-                    <div className="text-center bg-gray-50 rounded-lg p-2 flex-1 mx-1 border border-gray-100">
-                      <p className="text-[10px] sm:text-xs text-gray-500 font-bold">いまの ねだん (1かぶ)</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-bluegrey">{currentPrice} <span className="text-xs">コイン</span></p>
+                {/* ★株の詳細・操作エリア（大きく見やすく） */}
+                <div className="bg-white p-3 rounded-xl shadow-sm border-2 mb-2 flex-1 flex flex-col overflow-y-auto" style={{ borderColor: stockInfo[selectedStock].color }}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{stockInfo[selectedStock].icon}</span>
+                      <h3 className="font-bold text-base sm:text-lg" style={{ color: stockInfo[selectedStock].color }}>{stockInfo[selectedStock].name}</h3>
                     </div>
-                    <div className="text-center bg-gray-50 rounded-lg p-2 flex-1 mx-1 border border-gray-100">
-                      <p className="text-[10px] sm:text-xs text-gray-500 font-bold">もっている かず</p>
-                      <p className="text-2xl sm:text-3xl font-bold text-bluegrey">{portfolio[selectedStock]} <span className="text-xs">かぶ</span></p>
+                  </div>
+                  <p className="text-xs text-gray-600 font-bold mb-3 bg-gray-50 p-2 rounded">{stockInfo[selectedStock].desc}</p>
+                  
+                  <div className="flex justify-around items-stretch mb-3 gap-2">
+                    <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner">
+                      <p className="text-xs sm:text-sm text-gray-500 font-bold mb-1">いまの ねだん (1かぶ)</p>
+                      <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
+                        {currentPrice} <span className="text-sm">コイン</span>
+                      </p>
+                    </div>
+                    <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner">
+                      <p className="text-xs sm:text-sm text-gray-500 font-bold mb-1">もっている かず</p>
+                      <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
+                        {portfolio[selectedStock]} <span className="text-sm">かぶ</span>
+                      </p>
                     </div>
                   </div>
 
                   <div className="flex gap-3 mt-auto shrink-0">
                     <button 
                       onClick={buyStock}
-                      className="flex-1 bg-terracotta text-white py-3 rounded-xl font-bold shadow-md active:translate-y-1 flex justify-center items-center gap-1 text-sm sm:text-base"
+                      className="flex-1 bg-terracotta text-white py-3 sm:py-4 rounded-xl font-bold shadow-md active:translate-y-1 flex justify-center items-center gap-1 text-lg sm:text-xl"
                     >
                       👇 かう
                     </button>
                     <button 
                       onClick={sellStock}
-                      className="flex-1 bg-sage text-white py-3 rounded-xl font-bold shadow-md active:translate-y-1 flex justify-center items-center gap-1 text-sm sm:text-base"
+                      className="flex-1 bg-sage text-white py-3 sm:py-4 rounded-xl font-bold shadow-md active:translate-y-1 flex justify-center items-center gap-1 text-lg sm:text-xl"
                     >
                       👆 うる
                     </button>
@@ -613,10 +601,10 @@
                 </div>
 
                 {/* 一括売却ボタン */}
-                <div className="shrink-0 mt-1">
+                <div className="shrink-0">
                   <button 
                     onClick={sellAll}
-                    className="w-full bg-mustard text-bluegrey py-3 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm border-2 border-white"
+                    className="w-full bg-mustard text-bluegrey py-2.5 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm border-2 border-white"
                   >
                     もっている かぶ を ぜんぶ 売る！
                   </button>
