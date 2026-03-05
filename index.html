@@ -138,8 +138,7 @@
       miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく 高い！ お金もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50, dividend: 50 } // ★高配当
     };
 
-      // 基準日からの経過ステップ（半日単位）を計算する関数
-    const getStepFromDate = (date) => {
+   const getStepFromDate = (date) => {
       const baseDate = new Date(2024, 0, 1); 
       const diffTime = date.getTime() - baseDate.getTime();
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -147,7 +146,6 @@
       return diffDays * 2 + (isAfternoon ? 1 : 0);
     };
 
-    // 特定のステップの価格を計算するアルゴリズム
     const calculatePrice = (stockKey, step) => {
       const info = stockInfo[stockKey];
       
@@ -178,7 +176,6 @@
       const [score, setScore] = useState(0); 
       const [coin, setCoin] = useState(0);   
       
-      // ★データ構造を変更: 単なる数(qty)ではなく、平均取得単価(avgPrice)も保持する
       const initialPortfolio = Object.keys(stockInfo).reduce((acc, key) => {
         acc[key] = { qty: 0, avgPrice: 0 };
         return acc;
@@ -208,7 +205,6 @@
             const parsed = JSON.parse(savedPortfolioStr);
             const mergedPortfolio = { ...initialPortfolio };
             
-            // ★古いバージョン（単なる数値）からの互換性対応
             Object.keys(parsed).forEach(key => {
               if (typeof parsed[key] === 'number') {
                 mergedPortfolio[key] = { qty: parsed[key], avgPrice: stockInfo[key] ? stockInfo[key].basePrice : 0 };
@@ -252,7 +248,6 @@
         setHistoryData(newHistory);
       }, [currentStep, selectedStock]);
 
-      // 配当金（ボーナス）付与ロジック
       useEffect(() => {
         if (isLoading) return;
 
@@ -330,8 +325,9 @@
       };
 
       const currentPrice = historyData.length > 0 ? historyData[historyData.length - 1].price : 0;
+      const prevPrice = historyData.length > 1 ? historyData[historyData.length - 2].price : currentPrice;
+      const priceDiff = currentPrice - prevPrice;
 
-      // ★平均取得単価を計算して保存
       const buyStock = () => {
         if (coin >= currentPrice) {
           updateAssets(score, coin - currentPrice);
@@ -352,7 +348,7 @@
         if (p.qty > 0) {
           updateAssets(score, coin + currentPrice);
           const newQty = p.qty - 1;
-          const newAvgPrice = newQty === 0 ? 0 : p.avgPrice; // 0になったら平均単価もリセット
+          const newAvgPrice = newQty === 0 ? 0 : p.avgPrice; 
           
           const newPort = { ...portfolio, [selectedStock]: { qty: newQty, avgPrice: newAvgPrice } };
           updatePortfolio(newPort);
@@ -396,7 +392,7 @@
         }
       };
 
-      // スワイプ判定ロジック
+      // スワイプ判定
       const handleTouchStart = (e) => {
         setTouchEndPos({ x: null, y: null });
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -439,7 +435,7 @@
         setTouchEndPos({ x: null, y: null });
       };
 
-
+      // グラフ描画
       useEffect(() => {
         if (gameState !== 'MARKET' || !canvasRef.current || historyData.length === 0) return;
         
@@ -469,11 +465,22 @@
         ctx.stroke();
 
         const prices = historyData.map(d => d.price);
-        const maxVal = Math.max(...prices, 10);
-        const minVal = Math.min(...prices, 0);
-        const range = (maxVal - minVal) * 1.3 || 10; 
-        const displayMin = Math.max(0, minVal - range * 0.15);
+        let maxVal = Math.max(...prices);
+        let minVal = Math.min(...prices);
+        if (maxVal === minVal) {
+          maxVal += 10;
+          minVal = Math.max(0, minVal - 10);
+        }
         
+        let range = maxVal - minVal;
+        
+        // ★修正: グラフの縦幅に最低限の「遊び」を持たせ、微小な変動が誇張されすぎるのを防ぐ
+        const minRange = stockInfo[selectedStock].basePrice * 0.4; 
+        if (range < minRange) {
+          range = minRange;
+        }
+        
+        const displayMin = Math.max(0, minVal - range * 0.2);
         const stepX = width / (prices.length - 1);
         
         ctx.beginPath();
@@ -499,8 +506,15 @@
         ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
         ctx.fill();
 
+        // グラフの右端に今の価格を描画
+        ctx.fillStyle = stockInfo[selectedStock].color;
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(`${lastVal}`, lastX - 10, lastY + 5);
+
         ctx.fillStyle = '#9ca3af';
         ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
         ctx.fillText('1しゅうかん前', 5, height - 5);
         ctx.textAlign = 'right';
         ctx.fillText('いま', width - 5, height - 5);
@@ -539,7 +553,6 @@
         </div>
       );
 
-      // 持っている株の配列を作成
       const ownedStocks = Object.keys(portfolio).filter(key => portfolio[key].qty > 0);
 
       return (
@@ -672,7 +685,6 @@
                   </div>
                 </div>
 
-                {/* 10社の銘柄選択タブ */}
                 <div ref={tabContainerRef} className="flex gap-2 mb-2 overflow-x-auto pb-3 pt-1 scrollbar-hide snap-x snap-mandatory shrink-0">
                   {Object.entries(stockInfo).map(([key, info]) => {
                     const hasStock = portfolio[key].qty > 0;
@@ -700,7 +712,6 @@
                   <div className="min-w-[10px] shrink-0"></div>
                 </div>
 
-                {/* スワイプエリア */}
                 <div 
                   className="flex-1 flex flex-col cursor-grab active:cursor-grabbing overflow-y-auto scrollbar-hide select-none"
                   onTouchStart={handleTouchStart}
@@ -732,16 +743,24 @@
                     )}
                     
                     <div className="flex justify-around items-stretch mb-3 gap-2 pointer-events-none mt-auto">
-                      <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner">
+                      
+                      <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner relative">
                         <p className="text-xs sm:text-sm text-gray-500 font-bold mb-1">いまの ねだん (1かぶ)</p>
-                        <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
-                          {currentPrice} <span className="text-sm">コイン</span>
-                        </p>
+                        <div className="flex flex-col items-center justify-center">
+                          <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
+                            {currentPrice} <span className="text-sm font-normal text-gray-500">C</span>
+                          </p>
+                          {/* ★追加: 半日前からの変動 */}
+                          <p className={`text-[10px] sm:text-xs font-bold mt-1.5 ${priceDiff > 0 ? 'text-red-500' : priceDiff < 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                            半日前から: {priceDiff > 0 ? `▲ +${priceDiff}` : priceDiff < 0 ? `▼ ${priceDiff}` : '▶ 0'}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner">
+
+                      <div className="text-center bg-gray-50 rounded-lg p-2 sm:p-3 flex-1 border border-gray-200 shadow-inner flex flex-col justify-center">
                         <p className="text-xs sm:text-sm text-gray-500 font-bold mb-1">もっている かず</p>
                         <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
-                          {portfolio[selectedStock].qty} <span className="text-sm">かぶ</span>
+                          {portfolio[selectedStock].qty} <span className="text-sm font-normal text-gray-500">かぶ</span>
                         </p>
                       </div>
                     </div>
@@ -814,7 +833,7 @@
                       const totalProfit = profitPerStock * qty;
                       const isProfit = totalProfit >= 0;
                       const profitColor = isProfit ? 'text-red-500' : 'text-blue-600';
-                      const profitSign = isProfit ? '+' : '';
+                      const profitSign = isProfit ? '▲ +' : '▼ ';
                       
                       return (
                         <div key={key} className="bg-white p-2.5 sm:p-4 rounded-xl shadow-sm border-2 mb-3 flex items-center justify-between animate-pop-in" style={{ borderColor: info.color }}>
@@ -825,10 +844,16 @@
                             <div className="flex flex-col gap-1 overflow-hidden">
                               <p className="font-bold text-sm sm:text-lg leading-none truncate" style={{ color: info.color }}>{info.name}</p>
                               
+                              {/* ★追加: 買った時と今の比較をわかりやすく */}
                               <div className="flex flex-wrap items-center gap-1 text-[9px] sm:text-xs text-gray-500 font-bold">
                                 <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap">買った時: {avgPrice}C</span>
                                 <span>➡</span>
-                                <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap text-bluegrey">いま: {price}C</span>
+                                <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap text-bluegrey">
+                                  いま: {price}C
+                                  <span className={`ml-1 ${profitPerStock > 0 ? 'text-red-500' : profitPerStock < 0 ? 'text-blue-600' : ''}`}>
+                                    ({profitPerStock > 0 ? '▲' : profitPerStock < 0 ? '▼' : '▶'}{Math.abs(profitPerStock)})
+                                  </span>
+                                </span>
                               </div>
                               
                               <p className="text-[11px] sm:text-sm text-gray-600 font-bold leading-none mt-0.5">
@@ -845,7 +870,7 @@
                                 {total.toLocaleString()} <span className="text-[10px]">C</span>
                               </p>
                               <p className={`text-[10px] sm:text-xs font-bold mt-1 leading-none ${profitColor}`}>
-                                ({profitSign}{totalProfit.toLocaleString()} C)
+                                ({profitSign}{Math.abs(totalProfit).toLocaleString()} C)
                               </p>
                             </div>
                             
@@ -901,7 +926,6 @@
                 
                 <div className="flex-1 overflow-y-auto pb-4 px-4 pt-4">
                   
-                  {/* Step 1 */}
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-sage mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-sage text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">1</div>
                     <h3 className="font-bold text-lg text-sage mb-2 pl-3">コインを じゅんび しよう！</h3>
@@ -919,7 +943,6 @@
                     </div>
                   </div>
 
-                  {/* Step 2 */}
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-terracotta mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-terracotta text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">2</div>
                     <h3 className="font-bold text-lg text-terracotta mb-2 pl-3">「かぶ」を 買ってみよう！</h3>
@@ -940,7 +963,6 @@
                     </div>
                   </div>
 
-                  {/* Step 3 */}
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">3</div>
                     <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">ねだんが 上がったら 売ろう！</h3>
@@ -952,7 +974,6 @@
                     </div>
                   </div>
 
-                  {/* Step 4 */}
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-mustard mb-2 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-mustard text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">4</div>
                     <h3 className="font-bold text-lg text-yellow-600 mb-2 pl-3">はいとうきん（ボーナス）！</h3>
