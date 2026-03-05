@@ -189,6 +189,11 @@
       const [currentStep, setCurrentStep] = useState(getStepFromDate(new Date()));
       const [historyData, setHistoryData] = useState([]); 
 
+      // ★売却モーダル用のステート
+      const [sellModalInfo, setSellModalInfo] = useState({ isOpen: false, stockKey: null, maxQty: 0 });
+      const [sellAmount, setSellAmount] = useState(1);
+      const [sellAllModalOpen, setSellAllModalOpen] = useState(false);
+
       const canvasRef = useRef(null);
       const tabContainerRef = useRef(null);
 
@@ -343,36 +348,48 @@
         }
       };
 
-      const sellStock = () => {
-        const p = portfolio[selectedStock];
-        if (p.qty > 0) {
-          updateAssets(score, coin + currentPrice);
-          const newQty = p.qty - 1;
+      // ★売却モーダルを開く関数
+      const openSellModal = (key, initialAmount = 1) => {
+        const p = portfolio[key];
+        if (p.qty <= 0) {
+          showMessage('❌ この かぶ は もっていないよ！');
+          return;
+        }
+        setSellModalInfo({ isOpen: true, stockKey: key, maxQty: p.qty });
+        // 初期値が持っている数を超えないようにする
+        setSellAmount(initialAmount > p.qty ? p.qty : initialAmount);
+      };
+
+      const closeSellModal = () => {
+        setSellModalInfo({ isOpen: false, stockKey: null, maxQty: 0 });
+      };
+
+      // ★実際に売却を実行する関数
+      const executeSell = () => {
+        const key = sellModalInfo.stockKey;
+        const amount = sellAmount;
+        const p = portfolio[key];
+        
+        if (p.qty >= amount) {
+          const price = calculatePrice(key, currentStep);
+          const revenue = price * amount;
+          
+          updateAssets(score, coin + revenue);
+          const newQty = p.qty - amount;
           const newAvgPrice = newQty === 0 ? 0 : p.avgPrice; 
           
-          const newPort = { ...portfolio, [selectedStock]: { qty: newQty, avgPrice: newAvgPrice } };
+          const newPort = { ...portfolio, [key]: { qty: newQty, avgPrice: newAvgPrice } };
           updatePortfolio(newPort);
-          showMessage(`💰 ${stockInfo[selectedStock].name} を 1かぶ 売ったよ！`);
-        } else {
-          showMessage('❌ この かぶ は もっていないよ！');
+          showMessage(`💰 ${stockInfo[key].name} を ${amount}かぶ 売って\n${revenue.toLocaleString()} コイン になったよ！`);
         }
+        closeSellModal();
       };
 
-      const sellSpecificStockAll = (key) => {
-        const p = portfolio[key];
-        if (p.qty > 0) {
-          const price = calculatePrice(key, currentStep);
-          const revenue = p.qty * price;
-          updateAssets(score, coin + revenue);
-          const newPort = { ...portfolio, [key]: { qty: 0, avgPrice: 0 } };
-          updatePortfolio(newPort);
-          showMessage(`💰 ${stockInfo[key].name} を ぜんぶ売って ${revenue.toLocaleString()} コインになったよ！`);
-        }
-      };
-
-      const sellAll = () => {
+      // ★全部売却モーダルの実行関数
+      const executeSellAll = () => {
         let totalRevenue = 0;
         const currentPortfolio = { ...portfolio };
+        let soldCount = 0;
         
         Object.keys(currentPortfolio).forEach(key => {
           const qty = currentPortfolio[key].qty;
@@ -380,20 +397,24 @@
             const price = calculatePrice(key, currentStep);
             totalRevenue += qty * price;
             currentPortfolio[key] = { qty: 0, avgPrice: 0 };
+            soldCount++;
           }
         });
         
-        if (totalRevenue > 0) {
+        if (soldCount > 0) {
           updateAssets(score, coin + totalRevenue);
           updatePortfolio(currentPortfolio);
           showMessage(`🎉 ぜんぶ売って ${totalRevenue.toLocaleString()} コイン になったよ！`);
         } else {
           showMessage('❌ うれる かぶを もっていないよ！');
         }
+        setSellAllModalOpen(false);
       };
 
       // スワイプ判定
       const handleTouchStart = (e) => {
+        // モーダルが開いている時はスワイプさせない
+        if (sellModalInfo.isOpen || sellAllModalOpen) return;
         setTouchEndPos({ x: null, y: null });
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -401,14 +422,14 @@
       };
 
       const handleTouchMove = (e) => {
-        if (touchStartPos.x === null) return;
+        if (touchStartPos.x === null || sellModalInfo.isOpen || sellAllModalOpen) return;
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         setTouchEndPos({ x: clientX, y: clientY });
       };
 
       const handleTouchEnd = () => {
-        if (touchStartPos.x === null || touchEndPos.x === null) {
+        if (touchStartPos.x === null || touchEndPos.x === null || sellModalInfo.isOpen || sellAllModalOpen) {
           setTouchStartPos({ x: null, y: null });
           setTouchEndPos({ x: null, y: null });
           return;
@@ -472,15 +493,17 @@
           minVal = Math.max(0, minVal - 10);
         }
         
-        let range = maxVal - minVal;
+        let valRange = maxVal - minVal;
         
-        // ★修正: グラフの縦幅に最低限の「遊び」を持たせ、微小な変動が誇張されすぎるのを防ぐ
         const minRange = stockInfo[selectedStock].basePrice * 0.4; 
-        if (range < minRange) {
-          range = minRange;
+        if (valRange < minRange) {
+          valRange = minRange;
         }
         
-        const displayMin = Math.max(0, minVal - range * 0.2);
+        const displayMin = Math.max(0, minVal - valRange * 0.2); 
+        const displayMax = maxVal + valRange * 0.2; 
+        const renderRange = displayMax - displayMin; 
+        
         const stepX = width / (prices.length - 1);
         
         ctx.beginPath();
@@ -491,7 +514,7 @@
         
         prices.forEach((val, i) => {
           const x = i * stepX;
-          const y = height - ((val - displayMin) / range) * height;
+          const y = height - ((val - displayMin) / renderRange) * height;
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
@@ -499,14 +522,13 @@
 
         const lastVal = prices[prices.length - 1];
         const lastX = (prices.length - 1) * stepX;
-        const lastY = height - ((lastVal - displayMin) / range) * height;
+        const lastY = height - ((lastVal - displayMin) / renderRange) * height;
         
         ctx.beginPath();
         ctx.fillStyle = stockInfo[selectedStock].color;
         ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
         ctx.fill();
 
-        // グラフの右端に今の価格を描画
         ctx.fillStyle = stockInfo[selectedStock].color;
         ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'right';
@@ -522,7 +544,7 @@
       }, [gameState, historyData, selectedStock]);
 
       const backToPortal = () => {
-        window.location.href = 'https://hot-spring-egg.github.io/ontama-drill/';
+        window.location.href = 'https://hot-spring-egg.github.io/5sho-drill/';
       };
 
       const dateStr = `${currentDate.getMonth() + 1}月${currentDate.getDate()}日`;
@@ -750,7 +772,6 @@
                           <p className="text-3xl sm:text-4xl font-bold text-bluegrey leading-none">
                             {currentPrice} <span className="text-sm font-normal text-gray-500">C</span>
                           </p>
-                          {/* ★追加: 半日前からの変動 */}
                           <p className={`text-[10px] sm:text-xs font-bold mt-1.5 ${priceDiff > 0 ? 'text-red-500' : priceDiff < 0 ? 'text-blue-600' : 'text-gray-500'}`}>
                             半日前から: {priceDiff > 0 ? `▲ +${priceDiff}` : priceDiff < 0 ? `▼ ${priceDiff}` : '▶ 0'}
                           </p>
@@ -775,7 +796,7 @@
                         👇 かう
                       </button>
                       <button 
-                        onClick={sellStock}
+                        onClick={() => openSellModal(selectedStock, 1)}
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
                         className="flex-1 bg-sage text-white py-3 sm:py-4 rounded-xl font-bold shadow-md active:translate-y-1 flex justify-center items-center gap-1 text-lg sm:text-xl relative z-10"
@@ -828,7 +849,6 @@
                       const price = calculatePrice(key, currentStep);
                       const total = qty * price;
                       
-                      // 損益計算
                       const profitPerStock = price - avgPrice;
                       const totalProfit = profitPerStock * qty;
                       const isProfit = totalProfit >= 0;
@@ -838,13 +858,11 @@
                       return (
                         <div key={key} className="bg-white p-2.5 sm:p-4 rounded-xl shadow-sm border-2 mb-3 flex items-center justify-between animate-pop-in" style={{ borderColor: info.color }}>
                           
-                          {/* 左側：株の情報と買った値段・今の値段 */}
                           <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-hidden">
                             <span className="text-3xl sm:text-4xl bg-gray-50 p-2 rounded-lg shrink-0">{info.icon}</span>
                             <div className="flex flex-col gap-1 overflow-hidden">
                               <p className="font-bold text-sm sm:text-lg leading-none truncate" style={{ color: info.color }}>{info.name}</p>
                               
-                              {/* ★追加: 買った時と今の比較をわかりやすく */}
                               <div className="flex flex-wrap items-center gap-1 text-[9px] sm:text-xs text-gray-500 font-bold">
                                 <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap">買った時: {avgPrice}C</span>
                                 <span>➡</span>
@@ -862,7 +880,6 @@
                             </div>
                           </div>
                           
-                          {/* 右側：合計金額、損益、ボタン */}
                           <div className="text-right flex flex-col items-end gap-1.5 shrink-0 ml-1">
                             <div className="text-center w-full bg-gray-50 p-1.5 rounded-lg border border-gray-100">
                               <p className="text-[9px] text-gray-400 font-bold leading-none mb-1">ぜんぶで</p>
@@ -885,10 +902,10 @@
                                 📈 チャートへ
                               </button>
                               <button 
-                                onClick={() => sellSpecificStockAll(key)}
+                                onClick={() => openSellModal(key, qty)}
                                 className="bg-sage text-white px-2 py-1.5 rounded-md text-[9px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform w-full text-center"
                               >
-                                💰 ぜんぶ売る
+                                💰 このかぶを売る
                               </button>
                             </div>
                           </div>
@@ -902,7 +919,7 @@
                 {ownedStocks.length > 0 && (
                   <div className="shrink-0 mt-2 pt-3 border-t-2 border-gray-200 border-dashed">
                     <button 
-                      onClick={sellAll}
+                      onClick={() => setSellAllModalOpen(true)}
                       className="w-full bg-mustard text-bluegrey py-3 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm sm:text-base border-2 border-white"
                     >
                       もっている 全てのかぶ を 売る！
@@ -913,7 +930,6 @@
             </div>
           )}
 
-          {/* ----- 📖 つかいかた（チュートリアル）画面 ----- */}
           {gameState === 'TUTORIAL' && (
             <div className="w-full h-full flex flex-col items-center">
               <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-1.5 rounded-full text-sm font-bold shadow-sm mb-2">
@@ -987,6 +1003,90 @@
                     </div>
                   </div>
 
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ★追加：個別の株を売るときの確認モーダル */}
+          {sellModalInfo.isOpen && (
+            <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4" style={{ borderColor: stockInfo[sellModalInfo.stockKey].color }}>
+                <h3 className="text-xl font-bold text-center mb-4" style={{ color: stockInfo[sellModalInfo.stockKey].color }}>
+                  {stockInfo[sellModalInfo.stockKey].name} を 売る
+                </h3>
+                
+                <p className="text-center text-gray-600 font-bold mb-3">いくつ うる？</p>
+                
+                <div className="flex items-center justify-center gap-4 mb-4">
+                  <button 
+                    onClick={() => setSellAmount(Math.max(1, sellAmount - 1))}
+                    className="w-10 h-10 rounded-full bg-gray-200 text-xl font-bold active:scale-95 text-gray-600 flex items-center justify-center"
+                  >－</button>
+                  <div className="text-3xl font-bold text-bluegrey w-16 text-center">{sellAmount}</div>
+                  <button 
+                    onClick={() => setSellAmount(Math.min(sellModalInfo.maxQty, sellAmount + 1))}
+                    className="w-10 h-10 rounded-full bg-gray-200 text-xl font-bold active:scale-95 text-gray-600 flex items-center justify-center"
+                  >＋</button>
+                </div>
+                
+                <div className="px-2 mb-6">
+                  <input 
+                    type="range" 
+                    min="1" 
+                    max={sellModalInfo.maxQty} 
+                    value={sellAmount} 
+                    onChange={(e) => setSellAmount(parseInt(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-sage"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400 font-bold mt-1">
+                    <span>1</span>
+                    <span>{sellModalInfo.maxQty} (ぜんぶ)</span>
+                  </div>
+                </div>
+                
+                <div className="bg-gray-50 p-3 rounded-lg text-center mb-6 border border-gray-200">
+                  <p className="text-xs text-gray-500 font-bold mb-1">もらえる コイン の ごうけい</p>
+                  <p className="text-3xl font-bold text-bluegrey">
+                    {(calculatePrice(sellModalInfo.stockKey, currentStep) * sellAmount).toLocaleString()} <span className="text-sm">C</span>
+                  </p>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={closeSellModal}
+                    className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition-transform"
+                  >やめる</button>
+                  <button 
+                    onClick={executeSell}
+                    className="flex-1 bg-sage text-white py-3 rounded-xl font-bold active:scale-95 transition-transform"
+                  >ほんとうに うる</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ★追加：全てのかぶを売る時の確認モーダル */}
+          {sellAllModalOpen && (
+            <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+              <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4 border-mustard">
+                <h3 className="text-2xl font-bold text-center text-yellow-600 mb-4">ぜんぶ 売る！</h3>
+                <div className="bg-yellow-50 p-4 rounded-xl mb-6 border border-yellow-200 text-center">
+                  <p className="text-gray-700 font-bold leading-relaxed">
+                    もっている <span className="text-red-500">すべての かぶ</span> を<br/>
+                    いまの ねだんで 売ります。<br/><br/>
+                    ほんとうに いいですか？
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setSellAllModalOpen(false)}
+                    className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition-transform"
+                  >やめる</button>
+                  <button 
+                    onClick={executeSellAll}
+                    className="flex-1 bg-mustard text-bluegrey py-3 rounded-xl font-bold active:scale-95 transition-transform"
+                  >ぜんぶ うる</button>
                 </div>
               </div>
             </div>
