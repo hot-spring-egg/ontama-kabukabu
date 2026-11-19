@@ -112,6 +112,16 @@
       border-radius: 0.5rem;
     }
 
+    /* ふりがな */
+    ruby { ruby-position: over; }
+    rt {
+      font-size: 0.5em;
+      font-weight: 700;
+      letter-spacing: 0;
+      line-height: 1;
+      opacity: 0.85;
+    }
+
     /* スクロールバー非表示設定 */
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
@@ -128,20 +138,47 @@
   <script type="text/babel" data-presets="react-classic">
     const { useState, useEffect, useRef } = React;
 
+    // ★ふりがな：文字列の中の「{漢字|よみ}」を <ruby> に かえて 表示する
+    const furi = (text) => {
+      if (text === null || text === undefined) return text;
+      const str = String(text);
+      const parts = [];
+      const re = /\{([^|{}]+)\|([^|{}]+)\}/g;
+      let last = 0;
+      let m;
+      let i = 0;
+      while ((m = re.exec(str)) !== null) {
+        if (m.index > last) parts.push(str.slice(last, m.index));
+        parts.push(<ruby key={i++}>{m[1]}<rt>{m[2]}</rt></ruby>);
+        last = re.lastIndex;
+      }
+      if (last < str.length) parts.push(str.slice(last));
+      return parts;
+    };
+
+    // 「◯月◯日」を ふりがな つきの 書き方に する（10日＝とおか など とくべつな よみかた にも 対応）
+    const dayReadings = { 1: 'ついたち', 2: 'ふつか', 3: 'みっか', 4: 'よっか', 5: 'いつか', 6: 'むいか', 7: 'なのか', 8: 'ようか', 9: 'ここのか', 10: 'とおか', 14: 'じゅうよっか', 20: 'はつか', 24: 'にじゅうよっか' };
+    const formatMonthDay = (date) => {
+      const m = date.getMonth() + 1;
+      const d = date.getDate();
+      const dayPart = dayReadings[d] ? `{${d}日|${dayReadings[d]}}` : `${d}{日|にち}`;
+      return `${m}{月|がつ}${dayPart}`;
+    };
+
     // 10社のデータ定義と変動アルゴリズムのパラメータ（★dividend: 配当金を追加）
     const stockInfo = {
-      ontama: { id: 1, name: 'おんたま社', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '🥚', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5, dividend: 2 },
+      ontama: { id: 1, name: 'おんたま{社|しゃ}', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '🥚', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5, dividend: 2 },
       gosho: { id: 2, name: 'ブルベリカンパニー', desc: 'ふつうの かいしゃ。すこし ねだんが うごく。', color: '#3D405B', icon: '🎒', basePrice: 200, trendCycle: 30, trendAmp: 40, waveCycle: 14, waveAmp: 20, noise: 10, dividend: 4 },
       vegetable: { id: 3, name: 'まほうのやさい', desc: 'ねだんが はげしく うごく！あぶないかも？', color: '#E07A5F', icon: '🥦', basePrice: 80, trendCycle: 20, trendAmp: 40, waveCycle: 6, waveAmp: 30, noise: 20, dividend: 0 },
-      terracotta: { id: 4, name: 'りんご文具', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5, dividend: 3 },
-      sagefarm: { id: 5, name: 'パンダ農園', desc: '上がったり 下がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
-      mustard: { id: 6, name: 'パイン商事', desc: 'あんていしているが、たまに すごく 高くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10, dividend: 5 }, 
-      blue: { id: 7, name: 'レモン工業', desc: 'ねだんが 高い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15, dividend: 15 },
-      cream: { id: 8, name: 'オレンジ出版', desc: 'やすい から はじめてでも 買いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5, dividend: 1 },
-      hotspring: { id: 9, name: 'わくわく温泉', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80, dividend: 0 },
-      miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく 高い！ お金もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50, dividend: 50 }, // ★高配当
+      terracotta: { id: 4, name: 'りんご{文具|ぶんぐ}', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5, dividend: 3 },
+      sagefarm: { id: 5, name: 'パンダ{農園|のうえん}', desc: '{上|あ}がったり {下|さ}がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
+      mustard: { id: 6, name: 'パイン{商事|しょうじ}', desc: 'あんていしているが、たまに すごく {高|たか}くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10, dividend: 5 }, 
+      blue: { id: 7, name: 'レモン{工業|こうぎょう}', desc: 'ねだんが {高|たか}い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15, dividend: 15 },
+      cream: { id: 8, name: 'オレンジ{出版|しゅっぱん}', desc: 'やすい から はじめてでも {買|か}いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5, dividend: 1 },
+      hotspring: { id: 9, name: 'わくわく{温泉|おんせん}', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80, dividend: 0 },
+      miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく {高|たか}い！ お{金|かね}もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50, dividend: 50 }, // ★高配当
       // ★おんたま平均：上の10社の「ふだんの ねだん からの 上がり下がり」の へいきん
-      index: { id: 11, name: 'おんたま平均', desc: '10社 ぜんぶの へいきん。ばらばらに 買うより うごきが おだやか。', color: '#b8860b', icon: '🧺', basePrice: 300, isIndex: true, dividend: 3 }
+      index: { id: 11, name: 'おんたま{平均|へいきん}', desc: '10{社|しゃ} ぜんぶの へいきん。ばらばらに {買|か}うより うごきが おだやか。', color: '#b8860b', icon: '🧺', basePrice: 300, isIndex: true, dividend: 3 }
     };
 
     const companyKeys = Object.keys(stockInfo).filter(key => !stockInfo[key].isIndex);
@@ -188,44 +225,44 @@
     // ただし ぜったいでは ない（だいたい 4回に3回 あたる くらい）。
     const newsTemplates = {
       ontama: {
-        up: ['おんせんたまごが テレビで しょうかい された！', 'あさごはんに たまごを 食べる人が ふえているよ'],
-        down: ['にわとりの エサの ねだんが 上がって こまっている…', 'たまごの うりばに おきゃくさんが すくないみたい…'],
+        up: ['おんせんたまごが テレビで しょうかい された！', 'あさごはんに たまごを {食|た}べる{人|ひと}が ふえているよ'],
+        down: ['にわとりの エサの ねだんが {上|あ}がって こまっている…', 'たまごの うりばに おきゃくさんが すくないみたい…'],
       },
       gosho: {
-        up: ['ブルベリカンパニーの 新しい リュックが 大人気！', 'えんそくシーズンで かばんが よく うれている'],
-        down: ['ライバルの 会社が やすい かばんを 出した…', 'リュックの ファスナーに ふぐあいが 見つかった…'],
+        up: ['ブルベリカンパニーの {新|あたら}しい リュックが {大人気|だいにんき}！', 'えんそくシーズンで かばんが よく うれている'],
+        down: ['ライバルの {会社|かいしゃ}が やすい かばんを {出|だ}した…', 'リュックの ファスナーに ふぐあいが {見|み}つかった…'],
       },
       vegetable: {
-        up: ['まほうのやさいが 大豊作！ みんな 買いにきている', '「たべると 元気になる」と 話題に なっているよ'],
-        down: ['ながあめで やさいが うまく そだたない…', 'はたけに むしが たくさん 出てしまった…'],
+        up: ['まほうのやさいが {大豊作|だいほうさく}！ みんな {買|か}いにきている', '「たべると {元気|げんき}になる」と {話題|わだい}に なっているよ'],
+        down: ['ながあめで やさいが うまく そだたない…', 'はたけに むしが たくさん {出|で}てしまった…'],
       },
       terracotta: {
-        up: ['新学期で えんぴつや ノートが たくさん うれそう', 'りんご文具の けしゴムが SNSで 話題に！'],
-        down: ['ノートを つかう人が すこし へっているみたい…', '工場の 紙が たりなくて つくるのが おくれている…'],
+        up: ['{新学期|しんがっき}で えんぴつや ノートが たくさん うれそう', 'りんご{文具|ぶんぐ}の けしゴムが SNSで {話題|わだい}に！'],
+        down: ['ノートを つかう{人|ひと}が すこし へっているみたい…', '{工場|こうじょう}の {紙|かみ}が たりなくて つくるのが おくれている…'],
       },
       sagefarm: {
-        up: ['パンダ農園で 赤ちゃんパンダが うまれた！ 見学の人が ふえそう', 'パンダ農園の たけのこが とても おいしいと ひょうばん'],
-        down: ['台風で 農園への 道が とおれなく なった…', 'パンダが かぜを ひいて おやすみ ちゅう…'],
+        up: ['パンダ{農園|のうえん}で {赤|あか}ちゃんパンダが うまれた！ {見学|けんがく}の{人|ひと}が ふえそう', 'パンダ{農園|のうえん}の たけのこが とても おいしいと ひょうばん'],
+        down: ['{台風|たいふう}で {農園|のうえん}への {道|みち}が とおれなく なった…', 'パンダが かぜを ひいて おやすみ ちゅう…'],
       },
       mustard: {
-        up: ['パイン商事が 外国と 大きな とりひきを きめた！', 'パインアップルの ジュースが 夏に むけて 大人気'],
-        down: ['パインを はこぶ 船が おくれている…', '外国の パインの ねだんが 上がって もうけが へりそう…'],
+        up: ['パイン{商事|しょうじ}が {外国|がいこく}と {大|おお}きな とりひきを きめた！', 'パインアップルの ジュースが {夏|なつ}に むけて {大人気|だいにんき}'],
+        down: ['パインを はこぶ {船|ふね}が おくれている…', '{外国|がいこく}の パインの ねだんが {上|あ}がって もうけが へりそう…'],
       },
       blue: {
-        up: ['レモン工業の 新しい ロボットが 完成した！', '大きな 会社から きかいの ちゅうもんが きたよ'],
-        down: ['工場の きかいが こわれて しゅうり ちゅう…', 'ロボットの ぶひんが なかなか とどかない…'],
+        up: ['レモン{工業|こうぎょう}の {新|あたら}しい ロボットが {完成|かんせい}した！', '{大|おお}きな {会社|かいしゃ}から きかいの ちゅうもんが きたよ'],
+        down: ['{工場|こうじょう}の きかいが こわれて しゅうり ちゅう…', 'ロボットの ぶひんが なかなか とどかない…'],
       },
       cream: {
-        up: ['オレンジ出版の えほんが ベストセラーに！', '人気まんがの アニメ化が きまった！'],
-        down: ['本を 読む人が すこし へっている…', 'つぎの 本の はつばいが おくれることに なった…'],
+        up: ['オレンジ{出版|しゅっぱん}の えほんが ベストセラーに！', '{人気|にんき}まんがの アニメ{化|か}が きまった！'],
+        down: ['{本|ほん}を {読|よ}む{人|ひと}が すこし へっている…', 'つぎの {本|ほん}の はつばいが おくれることに なった…'],
       },
       hotspring: {
-        up: ['わくわく温泉に 有名人が きたらしい！', '「お肌が つるつるに なる」と うわさに なっている'],
-        down: ['温泉の お湯が ぬるく なっちゃった…', 'となり町に 新しい 温泉が できた…'],
+        up: ['わくわく{温泉|おんせん}に {有名人|ゆうめいじん}が きたらしい！', '「お{肌|はだ}が つるつるに なる」と うわさに なっている'],
+        down: ['{温泉|おんせん}の お{湯|ゆ}が ぬるく なっちゃった…', 'となり{町|まち}に {新|あたら}しい {温泉|おんせん}が できた…'],
       },
       miracle: {
-        up: ['ミラクル・トイの 新しい おもちゃが 大人気の よそう！', '外国でも ミラクル・トイの ぬいぐるみが うれはじめた'],
-        down: ['おもちゃ工場で ぶひんが たりない…', 'こどもたちの あいだで べつの おもちゃが はやっている…'],
+        up: ['ミラクル・トイの {新|あたら}しい おもちゃが {大人気|だいにんき}の よそう！', '{外国|がいこく}でも ミラクル・トイの ぬいぐるみが うれはじめた'],
+        down: ['おもちゃ{工場|こうじょう}で ぶひんが たりない…', 'こどもたちの あいだで べつの おもちゃが はやっている…'],
       },
     };
 
@@ -260,7 +297,7 @@
 
     const stepToLabel = (step) => {
       const d = new Date(2024, 0, 1 + Math.floor(step / 2));
-      return `${d.getMonth() + 1}月${d.getDate()}日 ${step % 2 === 0 ? 'ごぜん' : 'ごご'}`;
+      return `${formatMonthDay(d)} ${step % 2 === 0 ? 'ごぜん' : 'ごご'}`;
     };
 
     const App = () => {
@@ -419,8 +456,8 @@
             localStorage.setItem('ontama_coin', newCoin.toString());
             return newCoin;
           });
-          const timesText = payDays > 1 ? `（${payDays}回ぶん）` : '';
-          showMessage(`🎁 会社から「はいとうきん」${timesText}として\n${totalDividend.toLocaleString()} コイン もらったよ！`);
+          const timesText = payDays > 1 ? `（${payDays}{回|かい}ぶん）` : '';
+          showMessage(`🎁 {会社|かいしゃ}から「はいとうきん」${timesText}として\n${totalDividend.toLocaleString()} コイン もらったよ！`);
         }
       }, [currentDate, portfolio, isLoading]);
 
@@ -516,7 +553,7 @@
 
           const newPort = { ...portfolio, [key]: { qty: newQty, avgPrice: newAvgPrice } };
           updatePortfolio(newPort);
-          showMessage(`🛒 ${stockInfo[key].name} を ${amount}かぶ 買ったよ！`);
+          showMessage(`🛒 ${stockInfo[key].name} を ${amount}かぶ {買|か}ったよ！`);
         } else {
           showMessage('❌ コインが たりないよ！');
         }
@@ -539,7 +576,7 @@
 
           const newPort = { ...portfolio, [key]: { qty: newQty, avgPrice: newAvgPrice } };
           updatePortfolio(newPort);
-          showMessage(`💰 ${stockInfo[key].name} を ${amount}かぶ 売って\n${revenue.toLocaleString()} コイン になったよ！`);
+          showMessage(`💰 ${stockInfo[key].name} を ${amount}かぶ {売|う}って\n${revenue.toLocaleString()} コイン になったよ！`);
         }
         closeTradeModal();
       };
@@ -563,7 +600,7 @@
         if (soldCount > 0) {
           updateAssets(score, coin + totalRevenue);
           updatePortfolio(currentPortfolio);
-          showMessage(`🎉 ぜんぶ売って ${totalRevenue.toLocaleString()} コイン になったよ！`);
+          showMessage(`🎉 ぜんぶ{売|う}って ${totalRevenue.toLocaleString()} コイン になったよ！`);
         } else {
           showMessage('❌ うれる かぶを もっていないよ！');
         }
@@ -701,7 +738,7 @@
         ctx.fillStyle = '#9ca3af';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText('1しゅうかん前', 5, height - 5);
+        ctx.fillText('1しゅうかんまえ', 5, height - 5);
         ctx.textAlign = 'right';
         ctx.fillText('いま', width - 5, height - 5);
 
@@ -711,7 +748,7 @@
         window.location.href = 'https://hot-spring-egg.github.io/ontama-drill/';
       };
 
-      const dateStr = `${currentDate.getMonth() + 1}月${currentDate.getDate()}日`;
+      const dateStr = formatMonthDay(currentDate);
       const timeStr = currentDate.getHours() < 12 ? 'ごぜん' : 'ごご';
 
       if (isLoading) {
@@ -769,7 +806,7 @@
             // 中央よせ は外側、ポップアニメーション は内側（transform が ぶつからないように）
             <div className="absolute top-16 inset-x-0 flex justify-center z-50 pointer-events-none px-4">
               <div className="bg-bluegrey text-white px-6 py-3 rounded-full shadow-2xl font-bold animate-pop-in text-center whitespace-pre-wrap border-2 border-white max-w-full">
-                {message}
+                {furi(message)}
               </div>
             </div>
           )}
@@ -780,11 +817,11 @@
                 ← ドリルにもどる
               </button>
               
-              <div className="bg-paper px-8 py-8 rounded-sm shadow-xl mb-6 transform -rotate-2 relative border border-white">
+              <div className="bg-paper px-5 sm:px-8 py-8 rounded-sm shadow-xl mb-6 transform -rotate-2 relative border border-white max-w-full">
                 <div className="masking-tape masking-tape-terracotta"></div>
                 <div className="text-6xl text-center mb-2">📈</div>
-                <h1 className="text-4xl sm:text-5xl font-bold text-bluegrey tracking-widest text-center">おんたまカブカブ</h1>
-                <p className="text-center mt-4 text-gray-600 font-bold">かぶを 買って コインを ふやそう！</p>
+                <h1 className="whitespace-nowrap text-[min(8.5vw,3rem)] font-bold text-bluegrey tracking-wider text-center">おんたまカブカブ</h1>
+                <p className="text-center mt-4 text-gray-600 font-bold">かぶを <ruby>買<rt>か</rt></ruby>って コインを ふやそう！</p>
               </div>
 
               <div className="flex flex-col gap-3 w-full max-w-sm">
@@ -839,7 +876,7 @@
                 <div className="masking-tape masking-tape-mustard"></div>
                 <h2 className="text-2xl font-bold text-center text-bluegrey mb-4 mt-2">🏦 りょうがえじょ</h2>
                 
-                <p className="text-center text-sm text-gray-600 mb-6 font-bold">ドリルでためた「スコア」と、<br/>かぶを買うための「コイン」を こうかんします。</p>
+                <p className="text-center text-sm text-gray-600 mb-6 font-bold">ドリルでためた「スコア」と、<br/>かぶを<ruby>買<rt>か</rt></ruby>うための「コイン」を こうかんします。</p>
 
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-2 h-full bg-sage"></div>
@@ -901,7 +938,7 @@
                   <div className="text-right">
                     <p className="text-[10px] text-gray-500 font-bold mb-0.5">いまの じかん</p>
                     <p className="text-sm font-bold text-bluegrey bg-white px-2 py-0.5 rounded-full shadow-sm border border-gray-200">
-                      📅 {dateStr} {timeStr}
+                      📅 {furi(dateStr)} {timeStr}
                     </p>
                   </div>
                 </div>
@@ -921,7 +958,7 @@
                         }`}
                       >
                         <span className="text-2xl mb-1">{info.icon}</span>
-                        <span className="text-[10px] leading-tight text-center w-full overflow-hidden text-ellipsis">{info.name}</span>
+                        <span className="text-[10px] leading-normal text-center w-full overflow-hidden text-ellipsis pt-0.5">{furi(info.name)}</span>
                         {latestNews && latestNews.key === key && (
                           <span className="absolute -top-1.5 -left-1.5 bg-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm border border-gray-200">📰</span>
                         )}
@@ -954,11 +991,11 @@
                     <div className="flex items-center justify-between mb-1 pointer-events-none">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{stockInfo[selectedStock].icon}</span>
-                        <h3 className="font-bold text-base sm:text-lg" style={{ color: stockInfo[selectedStock].color }}>{stockInfo[selectedStock].name}</h3>
+                        <h3 className="font-bold text-base sm:text-lg" style={{ color: stockInfo[selectedStock].color }}>{furi(stockInfo[selectedStock].name)}</h3>
                       </div>
                     </div>
                     
-                    <p className="text-xs text-gray-600 font-bold mb-1 bg-gray-50 p-1.5 rounded pointer-events-none">{stockInfo[selectedStock].desc}</p>
+                    <p className="text-xs text-gray-600 font-bold mb-1 bg-gray-50 p-1.5 rounded pointer-events-none">{furi(stockInfo[selectedStock].desc)}</p>
                     
                     {latestNews && latestNews.key === selectedStock && (
                       <button
@@ -968,14 +1005,14 @@
                         className={`text-left px-2 py-1.5 rounded text-[11px] sm:text-xs font-bold mb-2 flex items-start gap-1.5 border relative z-10 ${latestNews.dir === 'up' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}
                       >
                         <span>📰</span>
-                        <span className="flex-1">ニュース：{latestNews.text}</span>
+                        <span className="flex-1">ニュース：{furi(latestNews.text)}</span>
                         <span className="text-gray-400 shrink-0">›</span>
                       </button>
                     )}
 
                     {stockInfo[selectedStock].dividend > 0 && (
                       <div className="bg-mustard/20 text-yellow-700 px-2 py-1 rounded text-[10px] sm:text-xs font-bold mb-2 flex items-center gap-1 pointer-events-none border border-mustard/30">
-                        <span>🎁</span> 毎月10日・20日に 1かぶ {stockInfo[selectedStock].dividend} コインもらえる！
+                        <span>🎁</span> <ruby>毎月<rt>まいつき</rt></ruby><ruby>10日<rt>とおか</rt></ruby>・<ruby>20日<rt>はつか</rt></ruby>に 1かぶ {stockInfo[selectedStock].dividend} コインもらえる！
                       </div>
                     )}
                     
@@ -988,7 +1025,7 @@
                             {currentPrice} <span className="text-sm font-normal text-gray-500">C</span>
                           </p>
                           <p className={`text-[10px] sm:text-xs font-bold mt-1.5 ${priceDiff > 0 ? 'text-red-500' : priceDiff < 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                            半日前から: {priceDiff > 0 ? `▲ +${priceDiff}` : priceDiff < 0 ? `▼ ${priceDiff}` : '▶ 0'}
+                            <ruby>半日前<rt>はんにちまえ</rt></ruby>から: {priceDiff > 0 ? `▲ +${priceDiff}` : priceDiff < 0 ? `▼ ${priceDiff}` : '▶ 0'}
                           </p>
                         </div>
                       </div>
@@ -1027,7 +1064,7 @@
                     onClick={() => setGameState('PORTFOLIO')}
                     className="w-full bg-bluegrey text-white py-2.5 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm border-2 border-white flex justify-center items-center gap-2"
                   >
-                    💼 もっている かぶ をみる（一覧）
+                    💼 もっている かぶ をみる（<ruby>一覧<rt>いちらん</rt></ruby>）
                   </button>
                 </div>
 
@@ -1055,7 +1092,7 @@
                     </div>
                     <div className="text-gray-300 text-xl">|</div>
                     <div>
-                      <p className="text-[10px] sm:text-xs text-gray-500 font-bold">買ったときより</p>
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-bold"><ruby>買<rt>か</rt></ruby>ったときより</p>
                       <p className={`text-lg sm:text-2xl font-bold leading-tight ${totalProfit > 0 ? 'text-red-500' : totalProfit < 0 ? 'text-blue-600' : 'text-gray-500'}`}>
                         {totalProfit > 0 ? '▲ +' : totalProfit < 0 ? '▼ ' : '▶ '}{Math.abs(totalProfit).toLocaleString()} <span className="text-[10px]">C</span>
                       </p>
@@ -1068,7 +1105,7 @@
                     <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
                       <span className="text-6xl mb-4">🍃</span>
                       <p className="font-bold text-lg">いま もっている かぶ は ないよ。</p>
-                      <p className="text-sm mt-2">マーケットで 買ってみよう！</p>
+                      <p className="text-sm mt-2">マーケットで <ruby>買<rt>か</rt></ruby>ってみよう！</p>
                     </div>
                   ) : (
                     ownedStocks.map(key => {
@@ -1092,10 +1129,10 @@
                           <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-hidden">
                             <span className="text-3xl sm:text-4xl bg-gray-50 p-2 rounded-lg shrink-0">{info.icon}</span>
                             <div className="flex flex-col gap-1 overflow-hidden">
-                              <p className="font-bold text-sm sm:text-lg leading-none truncate" style={{ color: info.color }}>{info.name}</p>
+                              <p className="font-bold text-sm sm:text-lg leading-normal truncate" style={{ color: info.color }}>{furi(info.name)}</p>
                               
                               <div className="flex flex-wrap items-center gap-1 text-[9px] sm:text-xs text-gray-500 font-bold">
-                                <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap">買った時: {avgPrice}C</span>
+                                <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap"><ruby>買<rt>か</rt></ruby>った<ruby>時<rt>とき</rt></ruby>: {avgPrice}C</span>
                                 <span>➡</span>
                                 <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap text-bluegrey">
                                   いま: {price}C
@@ -1106,7 +1143,7 @@
                               </div>
                               
                               <p className="text-[11px] sm:text-sm text-gray-600 font-bold leading-none mt-0.5">
-                                もっている数: <span className="text-bluegrey text-sm sm:text-base">{qty}</span> かぶ
+                                もっている<ruby>数<rt>かず</rt></ruby>: <span className="text-bluegrey text-sm sm:text-base">{qty}</span> かぶ
                               </p>
                             </div>
                           </div>
@@ -1136,7 +1173,7 @@
                                 onClick={() => openSellModal(key, qty)}
                                 className="bg-sage text-white px-2 py-1.5 rounded-md text-[9px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform w-full text-center"
                               >
-                                💰 このかぶを売る
+                                💰 このかぶを<ruby>売<rt>う</rt></ruby>る
                               </button>
                             </div>
                           </div>
@@ -1153,7 +1190,7 @@
                       onClick={() => setSellAllModalOpen(true)}
                       className="w-full bg-mustard text-bluegrey py-3 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm sm:text-base border-2 border-white"
                     >
-                      もっている 全てのかぶ を 売る！
+                      もっている <ruby>全<rt>すべ</rt></ruby>てのかぶ を <ruby>売<rt>う</rt></ruby>る！
                     </button>
                   </div>
                 )}
@@ -1194,14 +1231,14 @@
 
                   {/* 新聞の題字 */}
                   <div className="shrink-0 mt-3 mb-2 text-center border-y-4 border-double border-bluegrey py-1.5">
-                    <h2 className="text-2xl sm:text-3xl font-bold text-bluegrey tracking-[0.2em] font-kyokasho">📰 おんたま新聞</h2>
-                    <p className="text-[10px] sm:text-xs text-gray-500 font-bold mt-0.5">{dateStr}（{timeStr}）　・　半日ごとに あたらしい ニュースが とどくよ</p>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-bluegrey tracking-[0.2em] font-kyokasho">📰 おんたま<ruby>新聞<rt>しんぶん</rt></ruby></h2>
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-bold mt-0.5">{furi(dateStr)}（{timeStr}）　・　<ruby>半日<rt>はんにち</rt></ruby>ごとに あたらしい ニュースが とどくよ</p>
                   </div>
 
                   <div className="shrink-0 bg-mustard/20 border border-mustard/40 rounded-lg px-3 py-2 mb-3 text-[11px] sm:text-xs font-bold text-yellow-800 leading-relaxed">
-                    💡 ニュースは「これから 1日くらいの ねだん」の ヒント。でも <span className="text-red-600">はずれる ことも ある</span> よ！
+                    💡 ニュースは「これから <ruby>1日<rt>いちにち</rt></ruby>くらいの ねだん」の ヒント。でも <span className="text-red-600">はずれる ことも ある</span> よ！
                     {doneResults.length > 0 && (
-                      <span className="block mt-0.5 text-bluegrey">さいきんの こたえあわせ：{doneResults.length}こ中 <span className="text-red-500">{hitCount}こ あたり</span></span>
+                      <span className="block mt-0.5 text-bluegrey">さいきんの こたえあわせ：{doneResults.length}こ<ruby>中<rt>ちゅう</rt></ruby> <span className="text-red-500">{hitCount}こ あたり</span></span>
                     )}
                   </div>
 
@@ -1209,7 +1246,7 @@
                     {results.length === 0 ? (
                       <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
                         <span className="text-6xl mb-4">☕</span>
-                        <p className="font-bold text-lg">きょうは しずかな 一日。</p>
+                        <p className="font-bold text-lg">きょうは しずかな <ruby>一日<rt>いちにち</rt></ruby>。</p>
                       </div>
                     ) : results.map((r, i) => {
                       const info = stockInfo[r.key];
@@ -1220,7 +1257,7 @@
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-1.5">
                               {isLatest && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">いま</span>}
-                              <span className="text-[10px] sm:text-xs text-gray-400 font-bold">{stepToLabel(r.step)}</span>
+                              <span className="text-[10px] sm:text-xs text-gray-400 font-bold">{furi(stepToLabel(r.step))}</span>
                             </div>
                             <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${good ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
                               {good ? '😊 いいニュース' : '😟 しんぱいな ニュース'}
@@ -1230,14 +1267,14 @@
                           <div className="flex items-start gap-2">
                             <span className="text-3xl bg-gray-50 p-1.5 rounded-lg shrink-0">{info.icon}</span>
                             <div className="flex-1">
-                              <p className="text-[11px] font-bold mb-0.5" style={{ color: info.color }}>{info.name}</p>
-                              <p className={`font-bold text-bluegrey leading-snug font-kyokasho ${isLatest ? 'text-lg sm:text-xl' : 'text-base'}`}>{r.text}</p>
+                              <p className="text-[11px] font-bold mb-0.5" style={{ color: info.color }}>{furi(info.name)}</p>
+                              <p className={`font-bold text-bluegrey leading-relaxed font-kyokasho ${isLatest ? 'text-lg sm:text-xl' : 'text-base'}`}>{furi(r.text)}</p>
                             </div>
                           </div>
 
                           <div className="mt-2 pt-2 border-t border-dashed border-gray-200 flex items-center justify-between gap-2">
                             <div className="text-[11px] sm:text-xs font-bold text-gray-500">
-                              {r.isDone ? 'その後 1日で：' : `いまのところ（こたえあわせ まで あと${r.leftSteps}回）：`}
+                              {r.isDone ? furi('その{後|ご} {1日|いちにち}で：') : furi(`いまのところ（こたえあわせ まで あと${r.leftSteps}{回|かい}）：`)}
                               <span className="text-bluegrey">{r.startPrice}C → {r.endPrice}C </span>
                               <span className={r.diff > 0 ? 'text-red-500' : r.diff < 0 ? 'text-blue-600' : 'text-gray-500'}>
                                 {r.diff > 0 ? `▲+${r.diff}` : r.diff < 0 ? `▼${r.diff}` : '▶0'}
@@ -1252,7 +1289,7 @@
                               onClick={() => { setSelectedStock(r.key); setGameState('MARKET'); }}
                               className="bg-bluegrey text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform shrink-0"
                             >
-                              📈 見る
+                              📈 <ruby>見<rt>み</rt></ruby>る
                             </button>
                           </div>
                         </div>
@@ -1295,8 +1332,8 @@
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-terracotta mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-terracotta text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">2</div>
-                    <h3 className="font-bold text-lg text-terracotta mb-2 pl-3">「かぶ」を 買ってみよう！</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3">「マーケット」で会社をえらんで かぶ を買おう。いくつ買うかも えらべるよ。ねだんは <b>１日に２回（ごぜん・ごご）</b> かわるよ。</p>
+                    <h3 className="font-bold text-lg text-terracotta mb-2 pl-3">「かぶ」を <ruby>買<rt>か</rt></ruby>ってみよう！</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3">「マーケット」で<ruby>会社<rt>かいしゃ</rt></ruby>をえらんで かぶ を<ruby>買<rt>か</rt></ruby>おう。いくつ<ruby>買<rt>か</rt></ruby>うかも えらべるよ。ねだんは <b><ruby>１日<rt>いちにち</rt></ruby>に２<ruby>回<rt>かい</rt></ruby>（ごぜん・ごご）</b> かわるよ。</p>
                     <div className="flex justify-around items-center bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3">
                       <div className="text-center">
                         <span className="text-3xl">🥚</span>
@@ -1315,19 +1352,19 @@
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">3</div>
-                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">ねだんが 上がったら 売ろう！</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3"><b>「買ったときのねだん」</b> より <b>「いまのねだん」が高いとき</b> に売ると、コインがふえるよ！ （ポートフォリオ画面で「＋（プラス）」か「－（マイナス）」かがわかるよ）</p>
+                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">ねだんが <ruby>上<rt>あ</rt></ruby>がったら <ruby>売<rt>う</rt></ruby>ろう！</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3"><b>「<ruby>買<rt>か</rt></ruby>ったときのねだん」</b> より <b>「いまのねだん」が<ruby>高<rt>たか</rt></ruby>いとき</b> に<ruby>売<rt>う</rt></ruby>ると、コインがふえるよ！ （ポートフォリオ<ruby>画面<rt>がめん</rt></ruby>で「＋（プラス）」か「－（マイナス）」かがわかるよ）</p>
                     
                     <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100 mx-1 sm:mx-3">
                       <span className="text-2xl sm:text-3xl">⚠️</span>
-                      <p className="text-xs sm:text-sm text-red-600 font-bold leading-tight">ねだんが 下がったときに売ると、コインが へっちゃうから 気をつけてね！</p>
+                      <p className="text-xs sm:text-sm text-red-600 font-bold leading-tight">ねだんが <ruby>下<rt>さ</rt></ruby>がったときに<ruby>売<rt>う</rt></ruby>ると、コインが へっちゃうから <ruby>気<rt>き</rt></ruby>をつけてね！</p>
                     </div>
                   </div>
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-mustard mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-mustard text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">4</div>
                     <h3 className="font-bold text-lg text-yellow-600 mb-2 pl-3">はいとうきん（ボーナス）！</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3">毎月 <b>10日</b> と <b>20日</b> に、持っている かぶ の数だけ「はいとうきん」がもらえるよ！ 高いかぶほど、たくさんもらえるかも？ （アプリを ひらかなかった日の ぶんも、つぎに ひらいたときに もらえるよ）</p>
+                    <p className="text-sm text-gray-700 mb-3 pl-3"><ruby>毎月<rt>まいつき</rt></ruby> <b><ruby>10日<rt>とおか</rt></ruby></b> と <b><ruby>20日<rt>はつか</rt></ruby></b> に、<ruby>持<rt>も</rt></ruby>っている かぶ の<ruby>数<rt>かず</rt></ruby>だけ「はいとうきん」がもらえるよ！ <ruby>高<rt>たか</rt></ruby>いかぶほど、たくさんもらえるかも？ （アプリを ひらかなかった<ruby>日<rt>ひ</rt></ruby>の ぶんも、つぎに ひらいたときに もらえるよ）</p>
                     <div className="flex justify-center items-center gap-2 bg-yellow-50 py-3 rounded-lg border border-yellow-100 mx-1 sm:mx-3 text-center">
                       <span className="text-3xl">🧸</span>
                       <span className="text-xl font-bold text-yellow-600">＋</span>
@@ -1339,20 +1376,20 @@
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 relative" style={{ borderColor: '#b8860b' }}>
                     <div className="absolute -top-4 -left-3 w-8 h-8 text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10" style={{ backgroundColor: '#b8860b' }}>5</div>
-                    <h3 className="font-bold text-lg mb-2 pl-3" style={{ color: '#b8860b' }}>🧺 おんたま平均ってなに？</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3">10社 ぜんぶの ねだんの <b>へいきん</b> の かぶ だよ。どこかの会社が 下がっても、ほかの会社が 上がれば うめあわせ できるから、<b>ねだんの うごきが おだやか</b> なんだ。</p>
+                    <h3 className="font-bold text-lg mb-2 pl-3" style={{ color: '#b8860b' }}>🧺 おんたま<ruby>平均<rt>へいきん</rt></ruby>ってなに？</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3">10<ruby>社<rt>しゃ</rt></ruby> ぜんぶの ねだんの <b>へいきん</b> の かぶ だよ。どこかの<ruby>会社<rt>かいしゃ</rt></ruby>が <ruby>下<rt>さ</rt></ruby>がっても、ほかの<ruby>会社<rt>かいしゃ</rt></ruby>が <ruby>上<rt>あ</rt></ruby>がれば うめあわせ できるから、<b>ねだんの うごきが おだやか</b> なんだ。</p>
                     <div className="flex justify-center items-center gap-2 py-3 rounded-lg border mx-1 sm:mx-3 text-center" style={{ backgroundColor: '#fdf8e8', borderColor: '#f0e2b6' }}>
                       <span className="text-2xl">🥚🎒🥦✏️🌿</span>
                       <span className="text-xl font-bold" style={{ color: '#b8860b' }}>➡</span>
                       <span className="text-3xl">🧺</span>
                     </div>
-                    <p className="text-[11px] text-gray-500 font-bold mt-2 pl-3">「たまごは ひとつの カゴに もるな」＝ いろいろに 分けておくと あんしん、という ことわざ だよ。</p>
+                    <p className="text-[11px] text-gray-500 font-bold mt-2 pl-3">「たまごは ひとつの カゴに もるな」＝ いろいろに <ruby>分<rt>わ</rt></ruby>けておくと あんしん、という ことわざ だよ。</p>
                   </div>
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mt-6 mb-2 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">6</div>
-                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">📰 おんたまニュースを 読もう</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3">半日ごとに 会社の ニュースが とどくよ。<b className="text-red-500">いいニュース</b> の かぶは 上がりやすく、<b className="text-blue-600">しんぱいな ニュース</b> の かぶは 下がりやすい。でも <b>はずれる ことも ある</b> から、1日たったら こたえあわせ してみよう！</p>
+                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">📰 おんたまニュースを <ruby>読<rt>よ</rt></ruby>もう</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3"><ruby>半日<rt>はんにち</rt></ruby>ごとに <ruby>会社<rt>かいしゃ</rt></ruby>の ニュースが とどくよ。<b className="text-red-500">いいニュース</b> の かぶは <ruby>上<rt>あ</rt></ruby>がりやすく、<b className="text-blue-600">しんぱいな ニュース</b> の かぶは <ruby>下<rt>さ</rt></ruby>がりやすい。でも <b>はずれる ことも ある</b> から、<ruby>1日<rt>いちにち</rt></ruby>たったら こたえあわせ してみよう！</p>
                     <div className="flex justify-center items-center gap-3 bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3 text-center">
                       <span className="text-3xl">📰</span>
                       <span className="text-xl font-bold text-gray-400">➡</span>
@@ -1380,7 +1417,7 @@
               <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={closeTradeModal}>
                 <div className="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4" style={{ borderColor: info.color }} onClick={(e) => e.stopPropagation()}>
                   <h3 className="text-xl font-bold text-center mb-1" style={{ color: info.color }}>
-                    {info.icon} {info.name} を {isBuy ? '買う' : '売る'}
+                    {info.icon} {furi(info.name)} を {isBuy ? furi('{買|か}う') : furi('{売|う}る')}
                   </h3>
                   <p className="text-center text-xs text-gray-500 font-bold mb-3">1かぶ {price.toLocaleString()} C</p>
 
@@ -1443,7 +1480,7 @@
                     <button
                       onClick={isBuy ? executeBuy : executeSell}
                       className={`flex-1 ${accentClass} text-white py-3 rounded-xl font-bold active:scale-95 transition-transform`}
-                    >{isBuy ? 'この数で 買う' : 'ほんとうに うる'}</button>
+                    >{isBuy ? furi('この{数|かず}で {買|か}う') : 'ほんとうに うる'}</button>
                   </div>
                 </div>
               </div>
@@ -1454,11 +1491,11 @@
           {sellAllModalOpen && (
             <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4 border-mustard">
-                <h3 className="text-2xl font-bold text-center text-yellow-600 mb-4">ぜんぶ 売る！</h3>
+                <h3 className="text-2xl font-bold text-center text-yellow-600 mb-4">ぜんぶ <ruby>売<rt>う</rt></ruby>る！</h3>
                 <div className="bg-yellow-50 p-4 rounded-xl mb-6 border border-yellow-200 text-center">
                   <p className="text-gray-700 font-bold leading-relaxed">
                     もっている <span className="text-red-500">すべての かぶ</span> を<br/>
-                    いまの ねだんで 売ります。<br/><br/>
+                    いまの ねだんで <ruby>売<rt>う</rt></ruby>ります。<br/><br/>
                     ほんとうに いいですか？
                   </p>
                 </div>
