@@ -26,9 +26,9 @@
     }
   </script>
 
-  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone@7.26.4/babel.min.js"></script>
 
   <script>
     Babel.registerPreset('react-classic', {
@@ -112,6 +112,16 @@
       border-radius: 0.5rem;
     }
 
+    /* ふりがな */
+    ruby { ruby-position: over; }
+    rt {
+      font-size: 0.5em;
+      font-weight: 700;
+      letter-spacing: 0;
+      line-height: 1;
+      opacity: 0.85;
+    }
+
     /* スクロールバー非表示設定 */
     .scrollbar-hide::-webkit-scrollbar {
         display: none;
@@ -128,19 +138,50 @@
   <script type="text/babel" data-presets="react-classic">
     const { useState, useEffect, useRef } = React;
 
+    // ★ふりがな：文字列の中の「{漢字|よみ}」を <ruby> に かえて 表示する
+    const furi = (text) => {
+      if (text === null || text === undefined) return text;
+      const str = String(text);
+      const parts = [];
+      const re = /\{([^|{}]+)\|([^|{}]+)\}/g;
+      let last = 0;
+      let m;
+      let i = 0;
+      while ((m = re.exec(str)) !== null) {
+        if (m.index > last) parts.push(str.slice(last, m.index));
+        parts.push(<ruby key={i++}>{m[1]}<rt>{m[2]}</rt></ruby>);
+        last = re.lastIndex;
+      }
+      if (last < str.length) parts.push(str.slice(last));
+      return parts;
+    };
+
+    // 「◯月◯日」を ふりがな つきの 書き方に する（10日＝とおか など とくべつな よみかた にも 対応）
+    const dayReadings = { 1: 'ついたち', 2: 'ふつか', 3: 'みっか', 4: 'よっか', 5: 'いつか', 6: 'むいか', 7: 'なのか', 8: 'ようか', 9: 'ここのか', 10: 'とおか', 14: 'じゅうよっか', 20: 'はつか', 24: 'にじゅうよっか' };
+    const formatMonthDay = (date) => {
+      const m = date.getMonth() + 1;
+      const d = date.getDate();
+      const dayPart = dayReadings[d] ? `{${d}日|${dayReadings[d]}}` : `${d}{日|にち}`;
+      return `${m}{月|がつ}${dayPart}`;
+    };
+
     // 10社のデータ定義と変動アルゴリズムのパラメータ（★dividend: 配当金を追加）
     const stockInfo = {
-      ontama: { id: 1, name: 'おんたま社', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '🥚', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5, dividend: 2 },
+      ontama: { id: 1, name: 'おんたま{社|しゃ}', desc: 'あまり ねだんが かわらない。あんしん。', color: '#81B29A', icon: '👕', basePrice: 100, trendCycle: 40, trendAmp: 20, waveCycle: 10, waveAmp: 10, noise: 5, dividend: 2 },
       gosho: { id: 2, name: 'ブルベリカンパニー', desc: 'ふつうの かいしゃ。すこし ねだんが うごく。', color: '#3D405B', icon: '🎒', basePrice: 200, trendCycle: 30, trendAmp: 40, waveCycle: 14, waveAmp: 20, noise: 10, dividend: 4 },
       vegetable: { id: 3, name: 'まほうのやさい', desc: 'ねだんが はげしく うごく！あぶないかも？', color: '#E07A5F', icon: '🥦', basePrice: 80, trendCycle: 20, trendAmp: 40, waveCycle: 6, waveAmp: 30, noise: 20, dividend: 0 },
-      terracotta: { id: 4, name: 'りんご文具', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5, dividend: 3 },
-      sagefarm: { id: 5, name: 'パンダ農園', desc: '上がったり 下がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
-      mustard: { id: 6, name: 'パイン商事', desc: 'あんていしているが、たまに すごく 高くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10, dividend: 5 }, 
-      blue: { id: 7, name: 'レモン工業', desc: 'ねだんが 高い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15, dividend: 15 },
-      cream: { id: 8, name: 'オレンジ出版', desc: 'やすい から はじめてでも 買いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5, dividend: 1 },
-      hotspring: { id: 9, name: 'わくわく温泉', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80, dividend: 0 },
-      miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく 高い！ お金もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50, dividend: 50 } // ★高配当
+      terracotta: { id: 4, name: 'りんご{文具|ぶんぐ}', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5, dividend: 3 },
+      sagefarm: { id: 5, name: 'パンダ{農園|のうえん}', desc: '{上|あ}がったり {下|さ}がったりが わかりやすい。', color: '#72a88e', icon: '🍑', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
+      mustard: { id: 6, name: 'パイン{商事|しょうじ}', desc: 'あんていしているが、たまに すごく {高|たか}くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10, dividend: 5 }, 
+      blue: { id: 7, name: 'レモン{工業|こうぎょう}', desc: 'ねだんが {高|たか}い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15, dividend: 15 },
+      cream: { id: 8, name: 'オレンジ{出版|しゅっぱん}', desc: 'やすい から はじめてでも {買|か}いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5, dividend: 1 },
+      hotspring: { id: 9, name: 'わくわく{温泉|おんせん}', desc: 'どう うごくか まったく わからない！', color: '#ff7b7b', icon: '♨️', basePrice: 250, trendCycle: 14, trendAmp: 60, waveCycle: 5, waveAmp: 60, noise: 80, dividend: 0 },
+      miracle: { id: 10, name: 'ミラクル・トイ', desc: 'すごく {高|たか}い！ お{金|かね}もち むけ の かぶ。', color: '#9b5de5', icon: '🧸', basePrice: 1500, trendCycle: 90, trendAmp: 400, waveCycle: 30, waveAmp: 150, noise: 50, dividend: 50 }, // ★高配当
+      // ★おんたま平均：上の10社の「ふだんの ねだん からの 上がり下がり」の へいきん
+      index: { id: 11, name: 'おんたま{平均|へいきん}', desc: '10{社|しゃ} ぜんぶの へいきん。ばらばらに {買|か}うより うごきが おだやか。', color: '#b8860b', icon: '🧺', basePrice: 300, isIndex: true, dividend: 3 }
     };
+
+    const companyKeys = Object.keys(stockInfo).filter(key => !stockInfo[key].isIndex);
 
    const getStepFromDate = (date) => {
       const baseDate = new Date(2024, 0, 1); 
@@ -152,7 +193,13 @@
 
     const calculatePrice = (stockKey, step) => {
       const info = stockInfo[stockKey];
-      
+
+      if (info.isIndex) {
+        // 各社の「いまのねだん ÷ ふだんのねだん」を へいきんして、basePrice をかける
+        const ratioSum = companyKeys.reduce((sum, key) => sum + calculatePrice(key, step) / stockInfo[key].basePrice, 0);
+        return Math.max(5, Math.round(info.basePrice * ratioSum / companyKeys.length));
+      }
+
       const noiseFunc = (s) => {
         let x = Math.sin(info.id * 1234.5678 + s * 9876.5432) * 10000;
         return (x - Math.floor(x)) * 2 - 1.0;
@@ -171,6 +218,86 @@
       if (price < 5) price = 5;
       
       return price;
+    };
+
+    // ===== おんたまニュース =====
+    // ニュースは「これから 1日（2回ぶん）の ねだんの うごき」の ヒント。
+    // ただし ぜったいでは ない（だいたい 4回に3回 あたる くらい）。
+    const newsTemplates = {
+      ontama: {
+        up: ['おんたま{社|しゃ}の {新|あたら}しい Tシャツが {大人気|だいにんき}！', 'さむくなって セーターや コートが よく うれている'],
+        down: ['ことしの はやりの {色|いろ}を まちがえて、{服|ふく}が うれのこっている…', 'あたたかい {日|ひ}が つづいて {冬|ふゆ}の {服|ふく}が うれない…'],
+      },
+      gosho: {
+        up: ['ブルベリカンパニーの {新|あたら}しい リュックが {大人気|だいにんき}！', 'えんそくシーズンで かばんが よく うれている'],
+        down: ['ライバルの {会社|かいしゃ}が やすい かばんを {出|だ}した…', 'リュックの ファスナーに ふぐあいが {見|み}つかった…'],
+      },
+      vegetable: {
+        up: ['まほうのやさいが {大豊作|だいほうさく}！ みんな {買|か}いにきている', '「たべると {元気|げんき}になる」と {話題|わだい}に なっているよ'],
+        down: ['ながあめで やさいが うまく そだたない…', 'はたけに むしが たくさん {出|で}てしまった…'],
+      },
+      terracotta: {
+        up: ['{新学期|しんがっき}で えんぴつや ノートが たくさん うれそう', 'りんご{文具|ぶんぐ}の けしゴムが SNSで {話題|わだい}に！'],
+        down: ['ノートを つかう{人|ひと}が すこし へっているみたい…', '{工場|こうじょう}の {紙|かみ}が たりなくて つくるのが おくれている…'],
+      },
+      sagefarm: {
+        up: ['パンダ{農園|のうえん}の いちごが あまくて おいしいと ひょうばん！', 'パンダ{農園|のうえん}の ももが テレビで しょうかい された！'],
+        down: ['{台風|たいふう}で りんごの {実|み}が たくさん おちてしまった…', 'ことしは さむくて くだものが あまく ならない…'],
+      },
+      mustard: {
+        up: ['パイン{商事|しょうじ}が {外国|がいこく}と {大|おお}きな とりひきを きめた！', 'パインアップルの ジュースが {夏|なつ}に むけて {大人気|だいにんき}'],
+        down: ['パインを はこぶ {船|ふね}が おくれている…', '{外国|がいこく}の パインの ねだんが {上|あ}がって もうけが へりそう…'],
+      },
+      blue: {
+        up: ['レモン{工業|こうぎょう}の {新|あたら}しい ロボットが {完成|かんせい}した！', '{大|おお}きな {会社|かいしゃ}から きかいの ちゅうもんが きたよ'],
+        down: ['{工場|こうじょう}の きかいが こわれて しゅうり ちゅう…', 'ロボットの ぶひんが なかなか とどかない…'],
+      },
+      cream: {
+        up: ['オレンジ{出版|しゅっぱん}の えほんが ベストセラーに！', '{人気|にんき}まんがの アニメ{化|か}が きまった！'],
+        down: ['{本|ほん}を {読|よ}む{人|ひと}が すこし へっている…', 'つぎの {本|ほん}の はつばいが おくれることに なった…'],
+      },
+      hotspring: {
+        up: ['わくわく{温泉|おんせん}に {有名人|ゆうめいじん}が きたらしい！', '「お{肌|はだ}が つるつるに なる」と うわさに なっている'],
+        down: ['{温泉|おんせん}の お{湯|ゆ}が ぬるく なっちゃった…', 'となり{町|まち}に {新|あたら}しい {温泉|おんせん}が できた…'],
+      },
+      miracle: {
+        up: ['ミラクル・トイの {新|あたら}しい おもちゃが {大人気|だいにんき}の よそう！', '{外国|がいこく}でも ミラクル・トイの ぬいぐるみが うれはじめた'],
+        down: ['おもちゃ{工場|こうじょう}で ぶひんが たりない…', 'こどもたちの あいだで べつの おもちゃが はやっている…'],
+      },
+    };
+
+    const hash01 = (n) => {
+      const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+      return x - Math.floor(x);
+    };
+
+    // ノイズを のぞいた「ながれ」の部分
+    const smoothPart = (key, step) => {
+      const info = stockInfo[key];
+      return Math.sin(step * (Math.PI * 2 / info.trendCycle)) * info.trendAmp
+           + Math.sin(step * (Math.PI * 2 / info.waveCycle)) * info.waveAmp;
+    };
+
+    const NEWS_HORIZON = 2; // 何回あと（半日×2＝1日）の ねだんを 見て こたえあわせ するか
+
+    const getNewsForStep = (step) => {
+      for (let t = 0; t < 4; t++) {
+        const key = companyKeys[Math.floor(hash01(step * 7 + t) * companyKeys.length)];
+        const signal = (smoothPart(key, step + NEWS_HORIZON) - smoothPart(key, step)) / stockInfo[key].basePrice;
+        if (Math.abs(signal) < 0.05) continue;
+        let dir = signal > 0 ? 'up' : 'down';
+        // 5回に1回くらいは、ニュースと はんたいに うごく
+        if (hash01(step * 13 + 5) < 0.2) dir = dir === 'up' ? 'down' : 'up';
+        const list = newsTemplates[key][dir];
+        const text = list[Math.floor(hash01(step * 3 + 1) * list.length)];
+        return { step, key, dir, text };
+      }
+      return null;
+    };
+
+    const stepToLabel = (step) => {
+      const d = new Date(2024, 0, 1 + Math.floor(step / 2));
+      return `${formatMonthDay(d)} ${step % 2 === 0 ? 'ごぜん' : 'ごご'}`;
     };
 
     const App = () => {
@@ -193,16 +320,44 @@
       const [currentStep, setCurrentStep] = useState(getStepFromDate(new Date()));
       const [historyData, setHistoryData] = useState([]); 
 
-      // ★売却モーダル用のステート
-      const [sellModalInfo, setSellModalInfo] = useState({ isOpen: false, stockKey: null, maxQty: 0 });
-      const [sellAmount, setSellAmount] = useState(1);
+      // ★売買モーダル用のステート（mode: 'BUY' か 'SELL'）
+      const [tradeModalInfo, setTradeModalInfo] = useState({ isOpen: false, mode: 'SELL', stockKey: null, maxQty: 0 });
+      const [tradeAmount, setTradeAmount] = useState(1);
       const [sellAllModalOpen, setSellAllModalOpen] = useState(false);
 
       const canvasRef = useRef(null);
       const tabContainerRef = useRef(null);
+      const messageTimerRef = useRef(null);
+      const [newsSeenStep, setNewsSeenStep] = useState(() => {
+        try { return parseInt(localStorage.getItem('ontama_news_seen') || '0', 10); } catch (e) { return 0; }
+      });
+      const [canvasSizeKey, setCanvasSizeKey] = useState(0);
 
       const [touchStartPos, setTouchStartPos] = useState({ x: null, y: null });
       const [touchEndPos, setTouchEndPos] = useState({ x: null, y: null });
+
+      // 画面サイズが変わったらグラフをかきなおす
+      useEffect(() => {
+        const onResize = () => setCanvasSizeKey(k => k + 1);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+      }, []);
+
+      // 半日ごとに ねだんを 更新する
+      useEffect(() => {
+        const timer = setInterval(() => {
+          const now = new Date();
+          const step = getStepFromDate(now);
+          setCurrentStep(prevStep => {
+            if (step !== prevStep) setCurrentDate(now);
+            return step;
+          });
+        }, 60000);
+        return () => {
+          clearInterval(timer);
+          clearTimeout(messageTimerRef.current);
+        };
+      }, []);
 
       useEffect(() => {
         const loadData = () => {
@@ -231,18 +386,7 @@
         };
         
         loadData();
-
-        const timer = setInterval(() => {
-          const now = new Date();
-          const step = getStepFromDate(now);
-          if (step !== currentStep) {
-            setCurrentDate(now);
-            setCurrentStep(step);
-          }
-        }, 60000);
-
-        return () => clearInterval(timer);
-      }, [currentStep]);
+      }, []);
 
       useEffect(() => {
         const newHistory = [];
@@ -257,35 +401,63 @@
         setHistoryData(newHistory);
       }, [currentStep, selectedStock]);
 
+      // ★はいとうきん：前回チェックした日より後の「10日・20日」の回数ぶん まとめて はらう
+      // （アプリを ひらいていない日に 10日・20日 が すぎても もらいそびれない）
       useEffect(() => {
         if (isLoading) return;
 
-        const day = currentDate.getDate();
-        if (day === 10 || day === 20) {
-          const year = currentDate.getFullYear();
-          const month = currentDate.getMonth();
-          const dateStr = `${year}-${month}-${day}`;
-          const lastDividend = localStorage.getItem('ontama_last_dividend');
-          
-          if (lastDividend !== dateStr) {
-            let totalDividend = 0;
-            Object.keys(portfolio).forEach(key => {
-              const qty = portfolio[key].qty;
-              if (qty > 0 && stockInfo[key].dividend > 0) {
-                totalDividend += qty * stockInfo[key].dividend;
-              }
-            });
-            
-            if (totalDividend > 0) {
-              setCoin(prevCoin => {
-                const newCoin = prevCoin + totalDividend;
-                localStorage.setItem('ontama_coin', newCoin.toString());
-                return newCoin;
-              });
-              showMessage(`🎁 会社から「はいとうきん」として\n${totalDividend.toLocaleString()} コイン もらったよ！`);
-            }
-            localStorage.setItem('ontama_last_dividend', dateStr);
+        const toDayStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const fromDayStr = (s) => {
+          const [y, m, d] = s.split('-').map(Number);
+          return new Date(y, m - 1, d);
+        };
+        const isPayDay = (d) => d.getDate() === 10 || d.getDate() === 20;
+
+        const today = new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+        const todayStr = toDayStr(today);
+        let lastCheckedStr = localStorage.getItem('ontama_dividend_checked');
+
+        if (!lastCheckedStr) {
+          // 前のバージョンからの いこう：きょうが 配当日で まだ もらっていなければ、きょうの ぶん だけ はらう
+          const legacyTodayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+          const alreadyPaidToday = localStorage.getItem('ontama_last_dividend') === legacyTodayStr;
+          const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+          lastCheckedStr = (isPayDay(today) && !alreadyPaidToday) ? toDayStr(yesterday) : todayStr;
+        }
+
+        if (lastCheckedStr >= todayStr) {
+          localStorage.setItem('ontama_dividend_checked', todayStr);
+          return;
+        }
+
+        let payDays = 0;
+        const d = fromDayStr(lastCheckedStr);
+        d.setDate(d.getDate() + 1);
+        for (let guard = 0; d <= today && guard < 3700; guard++) {
+          if (isPayDay(d)) payDays++;
+          d.setDate(d.getDate() + 1);
+        }
+        localStorage.setItem('ontama_dividend_checked', todayStr);
+
+        if (payDays === 0) return;
+
+        let perPayDay = 0;
+        Object.keys(portfolio).forEach(key => {
+          const qty = portfolio[key].qty;
+          if (qty > 0 && stockInfo[key] && stockInfo[key].dividend > 0) {
+            perPayDay += qty * stockInfo[key].dividend;
           }
+        });
+        const totalDividend = perPayDay * payDays;
+
+        if (totalDividend > 0) {
+          setCoin(prevCoin => {
+            const newCoin = prevCoin + totalDividend;
+            localStorage.setItem('ontama_coin', newCoin.toString());
+            return newCoin;
+          });
+          const timesText = payDays > 1 ? `（${payDays}{回|かい}ぶん）` : '';
+          showMessage(`🎁 {会社|かいしゃ}から「はいとうきん」${timesText}として\n${totalDividend.toLocaleString()} コイン もらったよ！`);
         }
       }, [currentDate, portfolio, isLoading]);
 
@@ -311,8 +483,10 @@
       };
 
       const showMessage = (text) => {
+        // 前のタイマーを止めてから 出しなおす（つづけて出したメッセージが すぐ消えないように）
+        clearTimeout(messageTimerRef.current);
         setMessage(text);
-        setTimeout(() => setMessage(''), 3500);
+        messageTimerRef.current = setTimeout(() => setMessage(''), 3500);
       };
 
       const exchange = (amount, type) => {
@@ -337,56 +511,74 @@
       const prevPrice = historyData.length > 1 ? historyData[historyData.length - 2].price : currentPrice;
       const priceDiff = currentPrice - prevPrice;
 
-      const buyStock = () => {
-        if (coin >= currentPrice) {
-          updateAssets(score, coin - currentPrice);
-          const p = portfolio[selectedStock];
-          const newQty = p.qty + 1;
-          const newAvgPrice = Math.floor(((p.qty * p.avgPrice) + currentPrice) / newQty);
-          
-          const newPort = { ...portfolio, [selectedStock]: { qty: newQty, avgPrice: newAvgPrice } };
-          updatePortfolio(newPort);
-          showMessage(`🛒 ${stockInfo[selectedStock].name} を 1かぶ 買ったよ！`);
-        } else {
+      // ★買うモーダルを開く関数（いくつ買うか えらべる）
+      const openBuyModal = (key) => {
+        const price = calculatePrice(key, currentStep);
+        const maxQty = Math.floor(coin / price);
+        if (maxQty <= 0) {
           showMessage('❌ コインが たりないよ！');
+          return;
         }
+        setTradeModalInfo({ isOpen: true, mode: 'BUY', stockKey: key, maxQty });
+        setTradeAmount(1);
       };
 
-      // ★売却モーダルを開く関数
+      // ★売るモーダルを開く関数
       const openSellModal = (key, initialAmount = 1) => {
         const p = portfolio[key];
         if (p.qty <= 0) {
           showMessage('❌ この かぶ は もっていないよ！');
           return;
         }
-        setSellModalInfo({ isOpen: true, stockKey: key, maxQty: p.qty });
+        setTradeModalInfo({ isOpen: true, mode: 'SELL', stockKey: key, maxQty: p.qty });
         // 初期値が持っている数を超えないようにする
-        setSellAmount(initialAmount > p.qty ? p.qty : initialAmount);
+        setTradeAmount(initialAmount > p.qty ? p.qty : initialAmount);
       };
 
-      const closeSellModal = () => {
-        setSellModalInfo({ isOpen: false, stockKey: null, maxQty: 0 });
+      const closeTradeModal = () => {
+        setTradeModalInfo({ isOpen: false, mode: 'SELL', stockKey: null, maxQty: 0 });
+      };
+
+      const executeBuy = () => {
+        const key = tradeModalInfo.stockKey;
+        const amount = tradeAmount;
+        const price = calculatePrice(key, currentStep);
+        const cost = price * amount;
+
+        if (amount > 0 && coin >= cost) {
+          updateAssets(score, coin - cost);
+          const p = portfolio[key];
+          const newQty = p.qty + amount;
+          const newAvgPrice = Math.floor(((p.qty * p.avgPrice) + cost) / newQty);
+
+          const newPort = { ...portfolio, [key]: { qty: newQty, avgPrice: newAvgPrice } };
+          updatePortfolio(newPort);
+          showMessage(`🛒 ${stockInfo[key].name} を ${amount}かぶ {買|か}ったよ！`);
+        } else {
+          showMessage('❌ コインが たりないよ！');
+        }
+        closeTradeModal();
       };
 
       // ★実際に売却を実行する関数
       const executeSell = () => {
-        const key = sellModalInfo.stockKey;
-        const amount = sellAmount;
+        const key = tradeModalInfo.stockKey;
+        const amount = tradeAmount;
         const p = portfolio[key];
-        
+
         if (p.qty >= amount) {
           const price = calculatePrice(key, currentStep);
           const revenue = price * amount;
-          
+
           updateAssets(score, coin + revenue);
           const newQty = p.qty - amount;
-          const newAvgPrice = newQty === 0 ? 0 : p.avgPrice; 
-          
+          const newAvgPrice = newQty === 0 ? 0 : p.avgPrice;
+
           const newPort = { ...portfolio, [key]: { qty: newQty, avgPrice: newAvgPrice } };
           updatePortfolio(newPort);
-          showMessage(`💰 ${stockInfo[key].name} を ${amount}かぶ 売って\n${revenue.toLocaleString()} コイン になったよ！`);
+          showMessage(`💰 ${stockInfo[key].name} を ${amount}かぶ {売|う}って\n${revenue.toLocaleString()} コイン になったよ！`);
         }
-        closeSellModal();
+        closeTradeModal();
       };
 
       // ★全部売却モーダルの実行関数
@@ -408,7 +600,7 @@
         if (soldCount > 0) {
           updateAssets(score, coin + totalRevenue);
           updatePortfolio(currentPortfolio);
-          showMessage(`🎉 ぜんぶ売って ${totalRevenue.toLocaleString()} コイン になったよ！`);
+          showMessage(`🎉 ぜんぶ{売|う}って ${totalRevenue.toLocaleString()} コイン になったよ！`);
         } else {
           showMessage('❌ うれる かぶを もっていないよ！');
         }
@@ -418,7 +610,7 @@
       // スワイプ判定
       const handleTouchStart = (e) => {
         // モーダルが開いている時はスワイプさせない
-        if (sellModalInfo.isOpen || sellAllModalOpen) return;
+        if (tradeModalInfo.isOpen || sellAllModalOpen) return;
         setTouchEndPos({ x: null, y: null });
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -426,14 +618,14 @@
       };
 
       const handleTouchMove = (e) => {
-        if (touchStartPos.x === null || sellModalInfo.isOpen || sellAllModalOpen) return;
+        if (touchStartPos.x === null || tradeModalInfo.isOpen || sellAllModalOpen) return;
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         setTouchEndPos({ x: clientX, y: clientY });
       };
 
       const handleTouchEnd = () => {
-        if (touchStartPos.x === null || touchEndPos.x === null || sellModalInfo.isOpen || sellAllModalOpen) {
+        if (touchStartPos.x === null || touchEndPos.x === null || tradeModalInfo.isOpen || sellAllModalOpen) {
           setTouchStartPos({ x: null, y: null });
           setTouchEndPos({ x: null, y: null });
           return;
@@ -466,9 +658,14 @@
         
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
-        const width = canvas.width = canvas.offsetWidth;
-        const height = canvas.height = canvas.offsetHeight;
-        
+        // 高画素スマホでも くっきり表示する
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.offsetWidth;
+        const height = canvas.offsetHeight;
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
         ctx.clearRect(0, 0, width, height);
         
         ctx.strokeStyle = '#e5e7eb';
@@ -541,17 +738,17 @@
         ctx.fillStyle = '#9ca3af';
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText('1しゅうかん前', 5, height - 5);
+        ctx.fillText('1しゅうかんまえ', 5, height - 5);
         ctx.textAlign = 'right';
         ctx.fillText('いま', width - 5, height - 5);
 
-      }, [gameState, historyData, selectedStock]);
+      }, [gameState, historyData, selectedStock, canvasSizeKey]);
 
       const backToPortal = () => {
         window.location.href = 'https://hot-spring-egg.github.io/ontama-drill/';
       };
 
-      const dateStr = `${currentDate.getMonth() + 1}月${currentDate.getDate()}日`;
+      const dateStr = formatMonthDay(currentDate);
       const timeStr = currentDate.getHours() < 12 ? 'ごぜん' : 'ごご';
 
       if (isLoading) {
@@ -563,30 +760,54 @@
         );
       }
 
-      const StatusHeader = () => (
-        <div className="flex justify-around items-center bg-white/95 px-4 py-2 rounded-full shadow-sm w-full max-w-2xl mb-2 border border-gray-200 z-20 shrink-0">
-          <div className="flex items-baseline gap-2">
+      const ownedStocks = Object.keys(portfolio).filter(key => stockInfo[key] && portfolio[key].qty > 0);
+
+      // ★持っている株の いまの かち と、買ったときの ごうけい
+      const stockValue = ownedStocks.reduce((sum, key) => sum + portfolio[key].qty * calculatePrice(key, currentStep), 0);
+      const stockCost = ownedStocks.reduce((sum, key) => sum + portfolio[key].qty * portfolio[key].avgPrice, 0);
+      const totalAssets = coin + stockValue;
+      const totalProfit = stockValue - stockCost;
+
+      // ★おんたまニュース
+      const latestNews = getNewsForStep(currentStep);
+      const hasUnreadNews = !!latestNews && newsSeenStep < currentStep;
+      const openNews = () => {
+        setGameState('NEWS');
+        setNewsSeenStep(currentStep);
+        try { localStorage.setItem('ontama_news_seen', String(currentStep)); } catch (e) {}
+      };
+
+      // 関数として呼ぶ（コンポーネントにすると 毎回つくりなおされるため）
+      const renderStatusHeader = () => (
+        <div className="flex justify-around items-center bg-white/95 px-3 sm:px-4 py-1 sm:py-2 rounded-full shadow-sm w-full max-w-2xl mb-2 border border-gray-200 z-20 shrink-0 gap-1">
+          <div className="flex flex-col sm:flex-row items-center sm:items-baseline sm:gap-2 leading-tight">
             <span className="text-[10px] font-bold text-gray-500 hidden sm:inline">ドリル スコア</span>
             <span className="text-[10px] font-bold text-gray-500 sm:hidden">スコア</span>
-            <span className="text-xl font-bold text-sage">{score.toLocaleString()}</span>
+            <span className="text-lg sm:text-xl font-bold text-sage">{score.toLocaleString()}</span>
           </div>
           <div className="text-gray-300">|</div>
-          <div className="flex items-baseline gap-2">
+          <div className="flex flex-col sm:flex-row items-center sm:items-baseline sm:gap-2 leading-tight">
             <span className="text-[10px] font-bold text-gray-500 hidden sm:inline">おんたま コイン</span>
             <span className="text-[10px] font-bold text-gray-500 sm:hidden">コイン</span>
-            <span className="text-xl font-bold text-terracotta">{coin.toLocaleString()}</span>
+            <span className="text-lg sm:text-xl font-bold text-terracotta">{coin.toLocaleString()}</span>
+          </div>
+          <div className="text-gray-300">|</div>
+          <div className="flex flex-col sm:flex-row items-center sm:items-baseline sm:gap-2 leading-tight">
+            <span className="text-[10px] font-bold text-gray-500">ぜんざいさん</span>
+            <span className="text-lg sm:text-xl font-bold text-bluegrey">{totalAssets.toLocaleString()}</span>
           </div>
         </div>
       );
-
-      const ownedStocks = Object.keys(portfolio).filter(key => portfolio[key].qty > 0);
 
       return (
         <div className="w-full h-full flex flex-col items-center p-3 relative bg-cork overflow-hidden">
           
           {message && (
-            <div className="absolute top-16 left-1/2 transform -translate-x-1/2 bg-bluegrey text-white px-6 py-3 rounded-full shadow-2xl font-bold z-50 animate-pop-in text-center whitespace-pre-wrap border-2 border-white w-max max-w-[90%]">
-              {message}
+            // 中央よせ は外側、ポップアニメーション は内側（transform が ぶつからないように）
+            <div className="absolute top-16 inset-x-0 flex justify-center z-50 pointer-events-none px-4">
+              <div className="bg-bluegrey text-white px-6 py-3 rounded-full shadow-2xl font-bold animate-pop-in text-center whitespace-pre-wrap border-2 border-white max-w-full">
+                {furi(message)}
+              </div>
             </div>
           )}
 
@@ -596,11 +817,11 @@
                 ← ドリルにもどる
               </button>
               
-              <div className="bg-paper px-8 py-8 rounded-sm shadow-xl mb-6 transform -rotate-2 relative border border-white">
+              <div className="bg-paper px-5 sm:px-8 py-8 rounded-sm shadow-xl mb-6 transform -rotate-2 relative border border-white max-w-full">
                 <div className="masking-tape masking-tape-terracotta"></div>
                 <div className="text-6xl text-center mb-2">📈</div>
-                <h1 className="text-4xl sm:text-5xl font-bold text-bluegrey tracking-widest text-center">おんたまカブカブ</h1>
-                <p className="text-center mt-4 text-gray-600 font-bold">かぶを 買って コインを ふやそう！</p>
+                <h1 className="whitespace-nowrap text-[min(8.5vw,3rem)] font-bold text-bluegrey tracking-wider text-center">おんたまカブカブ</h1>
+                <p className="text-center mt-4 text-gray-600 font-bold">かぶを <ruby>買<rt>か</rt></ruby>って コインを ふやそう！</p>
               </div>
 
               <div className="flex flex-col gap-3 w-full max-w-sm">
@@ -622,12 +843,23 @@
                 >
                   💼 じぶんの かぶ
                 </button>
-                <button 
-                  onClick={() => setGameState('TUTORIAL')}
-                  className="bg-mustard text-bluegrey py-3.5 rounded-full shadow-md text-lg font-bold active:translate-y-1 transition-transform border-4 border-white flex justify-center items-center gap-2"
-                >
-                  📖 つかいかた
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={openNews}
+                    className="bg-white text-bluegrey py-3.5 rounded-full shadow-md text-base sm:text-lg font-bold active:translate-y-1 transition-transform border-4 border-white flex justify-center items-center gap-1 relative"
+                  >
+                    📰 ニュース
+                    {hasUnreadNews && (
+                      <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-white shadow animate-pulse">NEW</span>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => setGameState('TUTORIAL')}
+                    className="bg-mustard text-bluegrey py-3.5 rounded-full shadow-md text-base sm:text-lg font-bold active:translate-y-1 transition-transform border-4 border-white flex justify-center items-center gap-1"
+                  >
+                    📖 つかいかた
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -638,13 +870,13 @@
                 ← もどる
               </button>
 
-              <StatusHeader />
+              {renderStatusHeader()}
 
               <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-4 relative animate-open-note border border-white overflow-y-auto">
                 <div className="masking-tape masking-tape-mustard"></div>
                 <h2 className="text-2xl font-bold text-center text-bluegrey mb-4 mt-2">🏦 りょうがえじょ</h2>
                 
-                <p className="text-center text-sm text-gray-600 mb-6 font-bold">ドリルでためた「スコア」と、<br/>かぶを買うための「コイン」を こうかんします。</p>
+                <p className="text-center text-sm text-gray-600 mb-6 font-bold">ドリルでためた「スコア」と、<br/>かぶを<ruby>買<rt>か</rt></ruby>うための「コイン」を こうかんします。</p>
 
                 <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-4 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-2 h-full bg-sage"></div>
@@ -696,7 +928,7 @@
                 ← もどる
               </button>
 
-              <StatusHeader />
+              {renderStatusHeader()}
 
               <div className="w-full max-w-3xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-3 relative animate-open-note border border-white overflow-hidden">
                 <div className="masking-tape"></div>
@@ -706,7 +938,7 @@
                   <div className="text-right">
                     <p className="text-[10px] text-gray-500 font-bold mb-0.5">いまの じかん</p>
                     <p className="text-sm font-bold text-bluegrey bg-white px-2 py-0.5 rounded-full shadow-sm border border-gray-200">
-                      📅 {dateStr} {timeStr}
+                      📅 {furi(dateStr)} {timeStr}
                     </p>
                   </div>
                 </div>
@@ -726,7 +958,10 @@
                         }`}
                       >
                         <span className="text-2xl mb-1">{info.icon}</span>
-                        <span className="text-[10px] leading-tight text-center w-full overflow-hidden text-ellipsis">{info.name}</span>
+                        <span className="text-[10px] leading-normal text-center w-full overflow-hidden text-ellipsis pt-0.5">{furi(info.name)}</span>
+                        {latestNews && latestNews.key === key && (
+                          <span className="absolute -top-1.5 -left-1.5 bg-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm border border-gray-200">📰</span>
+                        )}
                         {hasStock && (
                           <span className="absolute -top-1.5 -right-1.5 bg-terracotta text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-sm border border-white">
                             {portfolio[key].qty}
@@ -756,15 +991,28 @@
                     <div className="flex items-center justify-between mb-1 pointer-events-none">
                       <div className="flex items-center gap-2">
                         <span className="text-2xl">{stockInfo[selectedStock].icon}</span>
-                        <h3 className="font-bold text-base sm:text-lg" style={{ color: stockInfo[selectedStock].color }}>{stockInfo[selectedStock].name}</h3>
+                        <h3 className="font-bold text-base sm:text-lg" style={{ color: stockInfo[selectedStock].color }}>{furi(stockInfo[selectedStock].name)}</h3>
                       </div>
                     </div>
                     
-                    <p className="text-xs text-gray-600 font-bold mb-1 bg-gray-50 p-1.5 rounded pointer-events-none">{stockInfo[selectedStock].desc}</p>
+                    <p className="text-xs text-gray-600 font-bold mb-1 bg-gray-50 p-1.5 rounded pointer-events-none">{furi(stockInfo[selectedStock].desc)}</p>
                     
+                    {latestNews && latestNews.key === selectedStock && (
+                      <button
+                        onClick={openNews}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className={`text-left px-2 py-1.5 rounded text-[11px] sm:text-xs font-bold mb-2 flex items-start gap-1.5 border relative z-10 ${latestNews.dir === 'up' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}
+                      >
+                        <span>📰</span>
+                        <span className="flex-1">ニュース：{furi(latestNews.text)}</span>
+                        <span className="text-gray-400 shrink-0">›</span>
+                      </button>
+                    )}
+
                     {stockInfo[selectedStock].dividend > 0 && (
                       <div className="bg-mustard/20 text-yellow-700 px-2 py-1 rounded text-[10px] sm:text-xs font-bold mb-2 flex items-center gap-1 pointer-events-none border border-mustard/30">
-                        <span>🎁</span> 毎月10日・20日に 1かぶ {stockInfo[selectedStock].dividend} コインもらえる！
+                        <span>🎁</span> <ruby>毎月<rt>まいつき</rt></ruby><ruby>10日<rt>とおか</rt></ruby>・<ruby>20日<rt>はつか</rt></ruby>に 1かぶ {stockInfo[selectedStock].dividend} コインもらえる！
                       </div>
                     )}
                     
@@ -777,7 +1025,7 @@
                             {currentPrice} <span className="text-sm font-normal text-gray-500">C</span>
                           </p>
                           <p className={`text-[10px] sm:text-xs font-bold mt-1.5 ${priceDiff > 0 ? 'text-red-500' : priceDiff < 0 ? 'text-blue-600' : 'text-gray-500'}`}>
-                            半日前から: {priceDiff > 0 ? `▲ +${priceDiff}` : priceDiff < 0 ? `▼ ${priceDiff}` : '▶ 0'}
+                            <ruby>半日前<rt>はんにちまえ</rt></ruby>から: {priceDiff > 0 ? `▲ +${priceDiff}` : priceDiff < 0 ? `▼ ${priceDiff}` : '▶ 0'}
                           </p>
                         </div>
                       </div>
@@ -792,7 +1040,7 @@
 
                     <div className="flex gap-3 shrink-0">
                       <button 
-                        onClick={buyStock}
+                        onClick={() => openBuyModal(selectedStock)}
                         onMouseDown={(e) => e.stopPropagation()}
                         onTouchStart={(e) => e.stopPropagation()}
                         className="flex-1 bg-terracotta text-white py-3 sm:py-4 rounded-xl font-bold shadow-md active:translate-y-1 flex justify-center items-center gap-1 text-lg sm:text-xl relative z-10"
@@ -816,7 +1064,7 @@
                     onClick={() => setGameState('PORTFOLIO')}
                     className="w-full bg-bluegrey text-white py-2.5 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm border-2 border-white flex justify-center items-center gap-2"
                   >
-                    💼 もっている かぶ をみる（一覧）
+                    💼 もっている かぶ をみる（<ruby>一覧<rt>いちらん</rt></ruby>）
                   </button>
                 </div>
 
@@ -830,18 +1078,34 @@
                 ← もどる
               </button>
 
-              <StatusHeader />
+              {renderStatusHeader()}
 
               <div className="w-full max-w-3xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-3 sm:p-4 relative animate-open-note border border-white overflow-hidden">
                 <div className="masking-tape masking-tape-sage"></div>
-                <h2 className="text-2xl font-bold text-center text-bluegrey mb-4 mt-2 shrink-0">💼 じぶんの かぶ</h2>
-                
+                <h2 className="text-2xl font-bold text-center text-bluegrey mb-3 mt-2 shrink-0">💼 じぶんの かぶ</h2>
+
+                {ownedStocks.length > 0 && (
+                  <div className="shrink-0 bg-white rounded-xl border-2 border-bluegrey/30 shadow-sm p-2.5 mb-3 flex justify-around items-center text-center">
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-bold">かぶの かち ごうけい</p>
+                      <p className="text-lg sm:text-2xl font-bold text-bluegrey leading-tight">{stockValue.toLocaleString()} <span className="text-[10px]">C</span></p>
+                    </div>
+                    <div className="text-gray-300 text-xl">|</div>
+                    <div>
+                      <p className="text-[10px] sm:text-xs text-gray-500 font-bold"><ruby>買<rt>か</rt></ruby>ったときより</p>
+                      <p className={`text-lg sm:text-2xl font-bold leading-tight ${totalProfit > 0 ? 'text-red-500' : totalProfit < 0 ? 'text-blue-600' : 'text-gray-500'}`}>
+                        {totalProfit > 0 ? '▲ +' : totalProfit < 0 ? '▼ ' : '▶ '}{Math.abs(totalProfit).toLocaleString()} <span className="text-[10px]">C</span>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex-1 overflow-y-auto pr-1 pb-2">
                   {ownedStocks.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
                       <span className="text-6xl mb-4">🍃</span>
                       <p className="font-bold text-lg">いま もっている かぶ は ないよ。</p>
-                      <p className="text-sm mt-2">マーケットで 買ってみよう！</p>
+                      <p className="text-sm mt-2">マーケットで <ruby>買<rt>か</rt></ruby>ってみよう！</p>
                     </div>
                   ) : (
                     ownedStocks.map(key => {
@@ -854,8 +1118,8 @@
                       const total = qty * price;
                       
                       const profitPerStock = price - avgPrice;
-                      const totalProfit = profitPerStock * qty;
-                      const isProfit = totalProfit >= 0;
+                      const stockProfit = profitPerStock * qty;
+                      const isProfit = stockProfit >= 0;
                       const profitColor = isProfit ? 'text-red-500' : 'text-blue-600';
                       const profitSign = isProfit ? '▲ +' : '▼ ';
                       
@@ -865,10 +1129,10 @@
                           <div className="flex items-center gap-2 sm:gap-3 flex-1 overflow-hidden">
                             <span className="text-3xl sm:text-4xl bg-gray-50 p-2 rounded-lg shrink-0">{info.icon}</span>
                             <div className="flex flex-col gap-1 overflow-hidden">
-                              <p className="font-bold text-sm sm:text-lg leading-none truncate" style={{ color: info.color }}>{info.name}</p>
+                              <p className="font-bold text-sm sm:text-lg leading-normal truncate" style={{ color: info.color }}>{furi(info.name)}</p>
                               
                               <div className="flex flex-wrap items-center gap-1 text-[9px] sm:text-xs text-gray-500 font-bold">
-                                <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap">買った時: {avgPrice}C</span>
+                                <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap"><ruby>買<rt>か</rt></ruby>った<ruby>時<rt>とき</rt></ruby>: {avgPrice}C</span>
                                 <span>➡</span>
                                 <span className="bg-gray-100 px-1.5 py-0.5 rounded whitespace-nowrap text-bluegrey">
                                   いま: {price}C
@@ -879,7 +1143,7 @@
                               </div>
                               
                               <p className="text-[11px] sm:text-sm text-gray-600 font-bold leading-none mt-0.5">
-                                もっている数: <span className="text-bluegrey text-sm sm:text-base">{qty}</span> かぶ
+                                もっている<ruby>数<rt>かず</rt></ruby>: <span className="text-bluegrey text-sm sm:text-base">{qty}</span> かぶ
                               </p>
                             </div>
                           </div>
@@ -891,7 +1155,7 @@
                                 {total.toLocaleString()} <span className="text-[10px]">C</span>
                               </p>
                               <p className={`text-[10px] sm:text-xs font-bold mt-1 leading-none ${profitColor}`}>
-                                ({profitSign}{Math.abs(totalProfit).toLocaleString()} C)
+                                ({profitSign}{Math.abs(stockProfit).toLocaleString()} C)
                               </p>
                             </div>
                             
@@ -909,7 +1173,7 @@
                                 onClick={() => openSellModal(key, qty)}
                                 className="bg-sage text-white px-2 py-1.5 rounded-md text-[9px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform w-full text-center"
                               >
-                                💰 このかぶを売る
+                                💰 このかぶを<ruby>売<rt>う</rt></ruby>る
                               </button>
                             </div>
                           </div>
@@ -926,13 +1190,116 @@
                       onClick={() => setSellAllModalOpen(true)}
                       className="w-full bg-mustard text-bluegrey py-3 rounded-xl font-bold shadow-sm active:translate-y-1 text-sm sm:text-base border-2 border-white"
                     >
-                      もっている 全てのかぶ を 売る！
+                      もっている <ruby>全<rt>すべ</rt></ruby>てのかぶ を <ruby>売<rt>う</rt></ruby>る！
                     </button>
                   </div>
                 )}
               </div>
             </div>
           )}
+
+
+          {gameState === 'NEWS' && (() => {
+            // さいきん 4日ぶん（8回ぶん）の ニュース
+            const newsList = [];
+            for (let st = currentStep; st > currentStep - 8; st--) {
+              const n = getNewsForStep(st);
+              if (n) newsList.push(n);
+            }
+            const results = newsList.map(n => {
+              const startPrice = calculatePrice(n.key, n.step);
+              const doneStep = n.step + NEWS_HORIZON;
+              const isDone = currentStep >= doneStep;
+              const endPrice = calculatePrice(n.key, isDone ? doneStep : currentStep);
+              const diff = endPrice - startPrice;
+              const isHit = diff !== 0 && ((diff > 0) === (n.dir === 'up'));
+              return { ...n, startPrice, endPrice, diff, isDone, isHit, leftSteps: doneStep - currentStep };
+            });
+            const doneResults = results.filter(r => r.isDone);
+            const hitCount = doneResults.filter(r => r.isHit).length;
+
+            return (
+              <div className="w-full h-full flex flex-col items-center">
+                <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-1.5 rounded-full text-sm font-bold shadow-sm mb-2">
+                  ← もどる
+                </button>
+
+                {renderStatusHeader()}
+
+                <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-3 sm:p-4 relative animate-open-note border border-white overflow-hidden">
+                  <div className="masking-tape masking-tape-terracotta"></div>
+
+                  {/* 新聞の題字 */}
+                  <div className="shrink-0 mt-3 mb-2 text-center border-y-4 border-double border-bluegrey py-1.5">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-bluegrey tracking-[0.2em] font-kyokasho">📰 おんたま<ruby>新聞<rt>しんぶん</rt></ruby></h2>
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-bold mt-0.5">{furi(dateStr)}（{timeStr}）　・　<ruby>半日<rt>はんにち</rt></ruby>ごとに あたらしい ニュースが とどくよ</p>
+                  </div>
+
+                  <div className="shrink-0 bg-mustard/20 border border-mustard/40 rounded-lg px-3 py-2 mb-3 text-[11px] sm:text-xs font-bold text-yellow-800 leading-relaxed">
+                    💡 ニュースは「これから <ruby>1日<rt>いちにち</rt></ruby>くらいの ねだん」の ヒント。でも <span className="text-red-600">はずれる ことも ある</span> よ！
+                    {doneResults.length > 0 && (
+                      <span className="block mt-0.5 text-bluegrey">さいきんの こたえあわせ：{doneResults.length}こ<ruby>中<rt>ちゅう</rt></ruby> <span className="text-red-500">{hitCount}こ あたり</span></span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto pr-1 pb-2">
+                    {results.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
+                        <span className="text-6xl mb-4">☕</span>
+                        <p className="font-bold text-lg">きょうは しずかな <ruby>一日<rt>いちにち</rt></ruby>。</p>
+                      </div>
+                    ) : results.map((r, i) => {
+                      const info = stockInfo[r.key];
+                      const isLatest = r.step === currentStep;
+                      const good = r.dir === 'up';
+                      return (
+                        <div key={r.step} className={`bg-white rounded-xl shadow-sm border-2 mb-3 p-3 animate-pop-in ${isLatest ? 'border-bluegrey' : 'border-gray-200'}`}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              {isLatest && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">いま</span>}
+                              <span className="text-[10px] sm:text-xs text-gray-400 font-bold">{furi(stepToLabel(r.step))}</span>
+                            </div>
+                            <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${good ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                              {good ? '😊 いいニュース' : '😟 しんぱいな ニュース'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-start gap-2">
+                            <span className="text-3xl bg-gray-50 p-1.5 rounded-lg shrink-0">{info.icon}</span>
+                            <div className="flex-1">
+                              <p className="text-[11px] font-bold mb-0.5" style={{ color: info.color }}>{furi(info.name)}</p>
+                              <p className={`font-bold text-bluegrey leading-relaxed font-kyokasho ${isLatest ? 'text-lg sm:text-xl' : 'text-base'}`}>{furi(r.text)}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-dashed border-gray-200 flex items-center justify-between gap-2">
+                            <div className="text-[11px] sm:text-xs font-bold text-gray-500">
+                              {r.isDone ? furi('その{後|ご} {1日|いちにち}で：') : furi(`いまのところ（こたえあわせ まで あと${r.leftSteps}{回|かい}）：`)}
+                              <span className="text-bluegrey">{r.startPrice}C → {r.endPrice}C </span>
+                              <span className={r.diff > 0 ? 'text-red-500' : r.diff < 0 ? 'text-blue-600' : 'text-gray-500'}>
+                                {r.diff > 0 ? `▲+${r.diff}` : r.diff < 0 ? `▼${r.diff}` : '▶0'}
+                              </span>
+                              {r.isDone && (
+                                <span className={`ml-1.5 px-1.5 py-0.5 rounded ${r.isHit ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                                  {r.isHit ? '⭕ あたり' : '❌ はずれ'}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => { setSelectedStock(r.key); setGameState('MARKET'); }}
+                              className="bg-bluegrey text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform shrink-0"
+                            >
+                              📈 <ruby>見<rt>み</rt></ruby>る
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {gameState === 'TUTORIAL' && (
             <div className="w-full h-full flex flex-col items-center">
@@ -965,11 +1332,11 @@
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-terracotta mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-terracotta text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">2</div>
-                    <h3 className="font-bold text-lg text-terracotta mb-2 pl-3">「かぶ」を 買ってみよう！</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3">「マーケット」で会社をえらんで かぶ を買おう。ねだんは <b>１日に２回（ごぜん・ごご）</b> かわるよ。</p>
+                    <h3 className="font-bold text-lg text-terracotta mb-2 pl-3">「かぶ」を <ruby>買<rt>か</rt></ruby>ってみよう！</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3">「マーケット」で<ruby>会社<rt>かいしゃ</rt></ruby>をえらんで かぶ を<ruby>買<rt>か</rt></ruby>おう。いくつ<ruby>買<rt>か</rt></ruby>うかも えらべるよ。ねだんは <b><ruby>１日<rt>いちにち</rt></ruby>に２<ruby>回<rt>かい</rt></ruby>（ごぜん・ごご）</b> かわるよ。</p>
                     <div className="flex justify-around items-center bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3">
                       <div className="text-center">
-                        <span className="text-3xl">🥚</span>
+                        <span className="text-3xl">👕</span>
                         <p className="text-[10px] font-bold text-gray-600 mt-1">あんしん</p>
                       </div>
                       <div className="text-center">
@@ -985,19 +1352,19 @@
 
                   <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">3</div>
-                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">ねだんが 上がったら 売ろう！</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3"><b>「買ったときのねだん」</b> より <b>「いまのねだん」が高いとき</b> に売ると、コインがふえるよ！ （ポートフォリオ画面で「＋（プラス）」か「－（マイナス）」かがわかるよ）</p>
+                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">ねだんが <ruby>上<rt>あ</rt></ruby>がったら <ruby>売<rt>う</rt></ruby>ろう！</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3"><b>「<ruby>買<rt>か</rt></ruby>ったときのねだん」</b> より <b>「いまのねだん」が<ruby>高<rt>たか</rt></ruby>いとき</b> に<ruby>売<rt>う</rt></ruby>ると、コインがふえるよ！ （ポートフォリオ<ruby>画面<rt>がめん</rt></ruby>で「＋（プラス）」か「－（マイナス）」かがわかるよ）</p>
                     
                     <div className="flex items-center gap-3 bg-red-50 p-3 rounded-lg border border-red-100 mx-1 sm:mx-3">
                       <span className="text-2xl sm:text-3xl">⚠️</span>
-                      <p className="text-xs sm:text-sm text-red-600 font-bold leading-tight">ねだんが 下がったときに売ると、コインが へっちゃうから 気をつけてね！</p>
+                      <p className="text-xs sm:text-sm text-red-600 font-bold leading-tight">ねだんが <ruby>下<rt>さ</rt></ruby>がったときに<ruby>売<rt>う</rt></ruby>ると、コインが へっちゃうから <ruby>気<rt>き</rt></ruby>をつけてね！</p>
                     </div>
                   </div>
 
-                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-mustard mb-2 relative">
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-mustard mb-6 relative">
                     <div className="absolute -top-4 -left-3 w-8 h-8 bg-mustard text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">4</div>
                     <h3 className="font-bold text-lg text-yellow-600 mb-2 pl-3">はいとうきん（ボーナス）！</h3>
-                    <p className="text-sm text-gray-700 mb-3 pl-3">毎月 <b>10日</b> と <b>20日</b> に、持っている かぶ の数だけ「はいとうきん」がもらえるよ！ 高いかぶほど、たくさんもらえるかも？</p>
+                    <p className="text-sm text-gray-700 mb-3 pl-3"><ruby>毎月<rt>まいつき</rt></ruby> <b><ruby>10日<rt>とおか</rt></ruby></b> と <b><ruby>20日<rt>はつか</rt></ruby></b> に、<ruby>持<rt>も</rt></ruby>っている かぶ の<ruby>数<rt>かず</rt></ruby>だけ「はいとうきん」がもらえるよ！ <ruby>高<rt>たか</rt></ruby>いかぶほど、たくさんもらえるかも？ （アプリを ひらかなかった<ruby>日<rt>ひ</rt></ruby>の ぶんも、つぎに ひらいたときに もらえるよ）</p>
                     <div className="flex justify-center items-center gap-2 bg-yellow-50 py-3 rounded-lg border border-yellow-100 mx-1 sm:mx-3 text-center">
                       <span className="text-3xl">🧸</span>
                       <span className="text-xl font-bold text-yellow-600">＋</span>
@@ -1007,78 +1374,128 @@
                     </div>
                   </div>
 
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 relative" style={{ borderColor: '#b8860b' }}>
+                    <div className="absolute -top-4 -left-3 w-8 h-8 text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10" style={{ backgroundColor: '#b8860b' }}>5</div>
+                    <h3 className="font-bold text-lg mb-2 pl-3" style={{ color: '#b8860b' }}>🧺 おんたま<ruby>平均<rt>へいきん</rt></ruby>ってなに？</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3">10<ruby>社<rt>しゃ</rt></ruby> ぜんぶの ねだんの <b>へいきん</b> の かぶ だよ。どこかの<ruby>会社<rt>かいしゃ</rt></ruby>が <ruby>下<rt>さ</rt></ruby>がっても、ほかの<ruby>会社<rt>かいしゃ</rt></ruby>が <ruby>上<rt>あ</rt></ruby>がれば うめあわせ できるから、<b>ねだんの うごきが おだやか</b> なんだ。</p>
+                    <div className="flex justify-center items-center gap-2 py-3 rounded-lg border mx-1 sm:mx-3 text-center" style={{ backgroundColor: '#fdf8e8', borderColor: '#f0e2b6' }}>
+                      <span className="text-2xl">👕🎒🥦✏️🍑</span>
+                      <span className="text-xl font-bold" style={{ color: '#b8860b' }}>➡</span>
+                      <span className="text-3xl">🧺</span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 font-bold mt-2 pl-3">「たまごは ひとつの カゴに もるな」＝ いろいろに <ruby>分<rt>わ</rt></ruby>けておくと あんしん、という ことわざ だよ。</p>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mt-6 mb-2 relative">
+                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">6</div>
+                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">📰 おんたまニュースを <ruby>読<rt>よ</rt></ruby>もう</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3"><ruby>半日<rt>はんにち</rt></ruby>ごとに <ruby>会社<rt>かいしゃ</rt></ruby>の ニュースが とどくよ。<b className="text-red-500">いいニュース</b> の かぶは <ruby>上<rt>あ</rt></ruby>がりやすく、<b className="text-blue-600">しんぱいな ニュース</b> の かぶは <ruby>下<rt>さ</rt></ruby>がりやすい。でも <b>はずれる ことも ある</b> から、<ruby>1日<rt>いちにち</rt></ruby>たったら こたえあわせ してみよう！</p>
+                    <div className="flex justify-center items-center gap-3 bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3 text-center">
+                      <span className="text-3xl">📰</span>
+                      <span className="text-xl font-bold text-gray-400">➡</span>
+                      <span className="text-3xl">🤔</span>
+                      <span className="text-xl font-bold text-gray-400">➡</span>
+                      <span className="text-3xl">⭕❌</span>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
           )}
 
-          {/* ★追加：個別の株を売るときの確認モーダル */}
-          {sellModalInfo.isOpen && (
-            <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-              <div className="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4" style={{ borderColor: stockInfo[sellModalInfo.stockKey].color }}>
-                <h3 className="text-xl font-bold text-center mb-4" style={{ color: stockInfo[sellModalInfo.stockKey].color }}>
-                  {stockInfo[sellModalInfo.stockKey].name} を 売る
-                </h3>
-                
-                <p className="text-center text-gray-600 font-bold mb-3">いくつ うる？</p>
-                
-                <div className="flex items-center justify-center gap-4 mb-4">
-                  <button 
-                    onClick={() => setSellAmount(Math.max(1, sellAmount - 1))}
-                    className="w-10 h-10 rounded-full bg-gray-200 text-xl font-bold active:scale-95 text-gray-600 flex items-center justify-center"
-                  >－</button>
-                  <div className="text-3xl font-bold text-bluegrey w-16 text-center">{sellAmount}</div>
-                  <button 
-                    onClick={() => setSellAmount(Math.min(sellModalInfo.maxQty, sellAmount + 1))}
-                    className="w-10 h-10 rounded-full bg-gray-200 text-xl font-bold active:scale-95 text-gray-600 flex items-center justify-center"
-                  >＋</button>
-                </div>
-                
-                <div className="px-2 mb-6">
-                  <input 
-                    type="range" 
-                    min="1" 
-                    max={sellModalInfo.maxQty} 
-                    value={sellAmount} 
-                    onChange={(e) => setSellAmount(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-sage"
-                  />
-                  <div className="flex justify-between text-xs text-gray-400 font-bold mt-1">
-                    <span>1</span>
-                    <span>{sellModalInfo.maxQty} (ぜんぶ)</span>
+          {/* ★売買モーダル（買う・売る どちらも いくつ か えらべる） */}
+          {tradeModalInfo.isOpen && (() => {
+            const info = stockInfo[tradeModalInfo.stockKey];
+            const isBuy = tradeModalInfo.mode === 'BUY';
+            const price = calculatePrice(tradeModalInfo.stockKey, currentStep);
+            const maxQty = tradeModalInfo.maxQty;
+            const total = price * tradeAmount;
+            const quickAmounts = [1, 5, 10].filter(n => n < maxQty);
+            const accentClass = isBuy ? 'bg-terracotta' : 'bg-sage';
+            return (
+              <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm" onClick={closeTradeModal}>
+                <div className="bg-white p-5 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4" style={{ borderColor: info.color }} onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-xl font-bold text-center mb-1" style={{ color: info.color }}>
+                    {info.icon} {furi(info.name)} を {isBuy ? furi('{買|か}う') : furi('{売|う}る')}
+                  </h3>
+                  <p className="text-center text-xs text-gray-500 font-bold mb-3">1かぶ {price.toLocaleString()} C</p>
+
+                  <p className="text-center text-gray-600 font-bold mb-2">いくつ {isBuy ? 'かう' : 'うる'}？</p>
+
+                  <div className="flex items-center justify-center gap-4 mb-3">
+                    <button
+                      onClick={() => setTradeAmount(Math.max(1, tradeAmount - 1))}
+                      className="w-11 h-11 rounded-full bg-gray-200 text-xl font-bold active:scale-95 text-gray-600 flex items-center justify-center"
+                    >－</button>
+                    <div className="text-4xl font-bold text-bluegrey w-20 text-center">{tradeAmount}</div>
+                    <button
+                      onClick={() => setTradeAmount(Math.min(maxQty, tradeAmount + 1))}
+                      className="w-11 h-11 rounded-full bg-gray-200 text-xl font-bold active:scale-95 text-gray-600 flex items-center justify-center"
+                    >＋</button>
+                  </div>
+
+                  <div className="flex justify-center gap-2 mb-3">
+                    {quickAmounts.map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setTradeAmount(n)}
+                        className={`px-3 py-1 rounded-full text-sm font-bold border-2 active:scale-95 transition-transform ${tradeAmount === n ? `${accentClass} text-white border-transparent` : 'bg-white text-gray-600 border-gray-200'}`}
+                      >{n}</button>
+                    ))}
+                    <button
+                      onClick={() => setTradeAmount(maxQty)}
+                      className={`px-3 py-1 rounded-full text-sm font-bold border-2 active:scale-95 transition-transform ${tradeAmount === maxQty ? `${accentClass} text-white border-transparent` : 'bg-white text-gray-600 border-gray-200'}`}
+                    >{isBuy ? `めいっぱい(${maxQty})` : `ぜんぶ(${maxQty})`}</button>
+                  </div>
+
+                  {maxQty > 1 && (
+                    <div className="px-2 mb-4">
+                      <input
+                        type="range"
+                        min="1"
+                        max={maxQty}
+                        value={tradeAmount}
+                        onChange={(e) => setTradeAmount(parseInt(e.target.value, 10))}
+                        className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer ${isBuy ? 'accent-terracotta' : 'accent-sage'}`}
+                      />
+                    </div>
+                  )}
+
+                  <div className="bg-gray-50 p-3 rounded-lg text-center mb-5 border border-gray-200">
+                    <p className="text-xs text-gray-500 font-bold mb-1">{isBuy ? 'つかう コイン の ごうけい' : 'もらえる コイン の ごうけい'}</p>
+                    <p className="text-3xl font-bold text-bluegrey">
+                      {total.toLocaleString()} <span className="text-sm">C</span>
+                    </p>
+                    <p className="text-[11px] text-gray-500 font-bold mt-1">
+                      {isBuy ? 'のこる' : 'ふえて'} コイン: {(isBuy ? coin - total : coin + total).toLocaleString()} C
+                    </p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={closeTradeModal}
+                      className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition-transform"
+                    >やめる</button>
+                    <button
+                      onClick={isBuy ? executeBuy : executeSell}
+                      className={`flex-1 ${accentClass} text-white py-3 rounded-xl font-bold active:scale-95 transition-transform`}
+                    >{isBuy ? furi('この{数|かず}で {買|か}う') : 'ほんとうに うる'}</button>
                   </div>
                 </div>
-                
-                <div className="bg-gray-50 p-3 rounded-lg text-center mb-6 border border-gray-200">
-                  <p className="text-xs text-gray-500 font-bold mb-1">もらえる コイン の ごうけい</p>
-                  <p className="text-3xl font-bold text-bluegrey">
-                    {(calculatePrice(sellModalInfo.stockKey, currentStep) * sellAmount).toLocaleString()} <span className="text-sm">C</span>
-                  </p>
-                </div>
-                
-                <div className="flex gap-3">
-                  <button 
-                    onClick={closeSellModal}
-                    className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-bold active:scale-95 transition-transform"
-                  >やめる</button>
-                  <button 
-                    onClick={executeSell}
-                    className="flex-1 bg-sage text-white py-3 rounded-xl font-bold active:scale-95 transition-transform"
-                  >ほんとうに うる</button>
-                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* ★追加：全てのかぶを売る時の確認モーダル */}
           {sellAllModalOpen && (
             <div className="absolute inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
               <div className="bg-white p-6 rounded-2xl shadow-2xl w-full max-w-sm relative animate-pop-in border-4 border-mustard">
-                <h3 className="text-2xl font-bold text-center text-yellow-600 mb-4">ぜんぶ 売る！</h3>
+                <h3 className="text-2xl font-bold text-center text-yellow-600 mb-4">ぜんぶ <ruby>売<rt>う</rt></ruby>る！</h3>
                 <div className="bg-yellow-50 p-4 rounded-xl mb-6 border border-yellow-200 text-center">
                   <p className="text-gray-700 font-bold leading-relaxed">
                     もっている <span className="text-red-500">すべての かぶ</span> を<br/>
-                    いまの ねだんで 売ります。<br/><br/>
+                    いまの ねだんで <ruby>売<rt>う</rt></ruby>ります。<br/><br/>
                     ほんとうに いいですか？
                   </p>
                 </div>
