@@ -171,7 +171,7 @@
       gosho: { id: 2, name: 'ブルベリカンパニー', desc: 'ふつうの かいしゃ。すこし ねだんが うごく。', color: '#3D405B', icon: '🎒', basePrice: 200, trendCycle: 30, trendAmp: 40, waveCycle: 14, waveAmp: 20, noise: 10, dividend: 4 },
       vegetable: { id: 3, name: 'まほうのやさい', desc: 'ねだんが はげしく うごく！あぶないかも？', color: '#E07A5F', icon: '🥦', basePrice: 80, trendCycle: 20, trendAmp: 40, waveCycle: 6, waveAmp: 30, noise: 20, dividend: 0 },
       terracotta: { id: 4, name: 'りんご{文具|ぶんぐ}', desc: 'ながい じかんをかけて ゆっくり うごく。', color: '#d97757', icon: '✏️', basePrice: 150, trendCycle: 100, trendAmp: 80, waveCycle: 20, waveAmp: 10, noise: 5, dividend: 3 },
-      sagefarm: { id: 5, name: 'パンダ{農園|のうえん}', desc: '{上|あ}がったり {下|さ}がったりが わかりやすい。', color: '#72a88e', icon: '🌿', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
+      sagefarm: { id: 5, name: 'パンダ{農園|のうえん}', desc: '{上|あ}がったり {下|さ}がったりが わかりやすい。', color: '#72a88e', icon: '🍑', basePrice: 120, trendCycle: 28, trendAmp: 10, waveCycle: 8, waveAmp: 40, noise: 5, dividend: 3 },
       mustard: { id: 6, name: 'パイン{商事|しょうじ}', desc: 'あんていしているが、たまに すごく {高|たか}くなる！', color: '#eabf7b', icon: '🏢', basePrice: 300, trendCycle: 60, trendAmp: 30, waveCycle: 18, waveAmp: 20, noise: 10, dividend: 5 }, 
       blue: { id: 7, name: 'レモン{工業|こうぎょう}', desc: 'ねだんが {高|たか}い。でも あまり うごかない。', color: '#2a2c42', icon: '⚙️', basePrice: 800, trendCycle: 80, trendAmp: 80, waveCycle: 24, waveAmp: 40, noise: 15, dividend: 15 },
       cream: { id: 8, name: 'オレンジ{出版|しゅっぱん}', desc: 'やすい から はじめてでも {買|か}いやすい。', color: '#bfae83', icon: '📚', basePrice: 40, trendCycle: 40, trendAmp: 15, waveCycle: 12, waveAmp: 10, noise: 5, dividend: 1 },
@@ -225,8 +225,8 @@
     // ただし ぜったいでは ない（だいたい 4回に3回 あたる くらい）。
     const newsTemplates = {
       ontama: {
-        up: ['おんせんたまごが テレビで しょうかい された！', 'あさごはんに たまごを {食|た}べる{人|ひと}が ふえているよ'],
-        down: ['にわとりの エサの ねだんが {上|あ}がって こまっている…', 'たまごの うりばに おきゃくさんが すくないみたい…'],
+        up: ['おんたま{社|しゃ}が あつかう しなものが 100しゅるいも ふえた！', 'おんたま{社|しゃ}が {外国|がいこく}から はこんだ おかしが スーパーで {大人気|だいにんき}'],
+        down: ['とりひきさきの {会社|かいしゃ}が 「もう {買|か}わない」と いってきた…', 'そうこに うれのこりの しなものが たまっている…'],
       },
       gosho: {
         up: ['ブルベリカンパニーの {新|あたら}しい リュックが {大人気|だいにんき}！', 'えんそくシーズンで かばんが よく うれている'],
@@ -241,8 +241,8 @@
         down: ['ノートを つかう{人|ひと}が すこし へっているみたい…', '{工場|こうじょう}の {紙|かみ}が たりなくて つくるのが おくれている…'],
       },
       sagefarm: {
-        up: ['パンダ{農園|のうえん}で {赤|あか}ちゃんパンダが うまれた！ {見学|けんがく}の{人|ひと}が ふえそう', 'パンダ{農園|のうえん}の たけのこが とても おいしいと ひょうばん'],
-        down: ['{台風|たいふう}で {農園|のうえん}への {道|みち}が とおれなく なった…', 'パンダが かぜを ひいて おやすみ ちゅう…'],
+        up: ['パンダ{農園|のうえん}の いちごが あまくて おいしいと ひょうばん！', 'パンダ{農園|のうえん}の ももが テレビで しょうかい された！'],
+        down: ['{台風|たいふう}で りんごの {実|み}が たくさん おちてしまった…', 'ことしは さむくて くだものが あまく ならない…'],
       },
       mustard: {
         up: ['パイン{商事|しょうじ}が {外国|がいこく}と {大|おお}きな とりひきを きめた！', 'パインアップルの ジュースが {夏|なつ}に むけて {大人気|だいにんき}'],
@@ -1379,7 +1379,7 @@
                     <h3 className="font-bold text-lg mb-2 pl-3" style={{ color: '#b8860b' }}>🧺 おんたま<ruby>平均<rt>へいきん</rt></ruby>ってなに？</h3>
                     <p className="text-sm text-gray-700 mb-3 pl-3">10<ruby>社<rt>しゃ</rt></ruby> ぜんぶの ねだんの <b>へいきん</b> の かぶ だよ。どこかの<ruby>会社<rt>かいしゃ</rt></ruby>が <ruby>下<rt>さ</rt></ruby>がっても、ほかの<ruby>会社<rt>かいしゃ</rt></ruby>が <ruby>上<rt>あ</rt></ruby>がれば うめあわせ できるから、<b>ねだんの うごきが おだやか</b> なんだ。</p>
                     <div className="flex justify-center items-center gap-2 py-3 rounded-lg border mx-1 sm:mx-3 text-center" style={{ backgroundColor: '#fdf8e8', borderColor: '#f0e2b6' }}>
-                      <span className="text-2xl">🥚🎒🥦✏️🌿</span>
+                      <span className="text-2xl">🥚🎒🥦✏️🍑</span>
                       <span className="text-xl font-bold" style={{ color: '#b8860b' }}>➡</span>
                       <span className="text-3xl">🧺</span>
                     </div>
