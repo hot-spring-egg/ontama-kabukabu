@@ -183,6 +183,86 @@
       return price;
     };
 
+    // ===== おんたまニュース =====
+    // ニュースは「これから 1日（2回ぶん）の ねだんの うごき」の ヒント。
+    // ただし ぜったいでは ない（だいたい 4回に3回 あたる くらい）。
+    const newsTemplates = {
+      ontama: {
+        up: ['おんせんたまごが テレビで しょうかい された！', 'あさごはんに たまごを 食べる人が ふえているよ'],
+        down: ['にわとりの エサの ねだんが 上がって こまっている…', 'たまごの うりばに おきゃくさんが すくないみたい…'],
+      },
+      gosho: {
+        up: ['ブルベリカンパニーの 新しい リュックが 大人気！', 'えんそくシーズンで かばんが よく うれている'],
+        down: ['ライバルの 会社が やすい かばんを 出した…', 'リュックの ファスナーに ふぐあいが 見つかった…'],
+      },
+      vegetable: {
+        up: ['まほうのやさいが 大豊作！ みんな 買いにきている', '「たべると 元気になる」と 話題に なっているよ'],
+        down: ['ながあめで やさいが うまく そだたない…', 'はたけに むしが たくさん 出てしまった…'],
+      },
+      terracotta: {
+        up: ['新学期で えんぴつや ノートが たくさん うれそう', 'りんご文具の けしゴムが SNSで 話題に！'],
+        down: ['ノートを つかう人が すこし へっているみたい…', '工場の 紙が たりなくて つくるのが おくれている…'],
+      },
+      sagefarm: {
+        up: ['パンダ農園で 赤ちゃんパンダが うまれた！ 見学の人が ふえそう', 'パンダ農園の たけのこが とても おいしいと ひょうばん'],
+        down: ['台風で 農園への 道が とおれなく なった…', 'パンダが かぜを ひいて おやすみ ちゅう…'],
+      },
+      mustard: {
+        up: ['パイン商事が 外国と 大きな とりひきを きめた！', 'パインアップルの ジュースが 夏に むけて 大人気'],
+        down: ['パインを はこぶ 船が おくれている…', '外国の パインの ねだんが 上がって もうけが へりそう…'],
+      },
+      blue: {
+        up: ['レモン工業の 新しい ロボットが 完成した！', '大きな 会社から きかいの ちゅうもんが きたよ'],
+        down: ['工場の きかいが こわれて しゅうり ちゅう…', 'ロボットの ぶひんが なかなか とどかない…'],
+      },
+      cream: {
+        up: ['オレンジ出版の えほんが ベストセラーに！', '人気まんがの アニメ化が きまった！'],
+        down: ['本を 読む人が すこし へっている…', 'つぎの 本の はつばいが おくれることに なった…'],
+      },
+      hotspring: {
+        up: ['わくわく温泉に 有名人が きたらしい！', '「お肌が つるつるに なる」と うわさに なっている'],
+        down: ['温泉の お湯が ぬるく なっちゃった…', 'となり町に 新しい 温泉が できた…'],
+      },
+      miracle: {
+        up: ['ミラクル・トイの 新しい おもちゃが 大人気の よそう！', '外国でも ミラクル・トイの ぬいぐるみが うれはじめた'],
+        down: ['おもちゃ工場で ぶひんが たりない…', 'こどもたちの あいだで べつの おもちゃが はやっている…'],
+      },
+    };
+
+    const hash01 = (n) => {
+      const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453;
+      return x - Math.floor(x);
+    };
+
+    // ノイズを のぞいた「ながれ」の部分
+    const smoothPart = (key, step) => {
+      const info = stockInfo[key];
+      return Math.sin(step * (Math.PI * 2 / info.trendCycle)) * info.trendAmp
+           + Math.sin(step * (Math.PI * 2 / info.waveCycle)) * info.waveAmp;
+    };
+
+    const NEWS_HORIZON = 2; // 何回あと（半日×2＝1日）の ねだんを 見て こたえあわせ するか
+
+    const getNewsForStep = (step) => {
+      for (let t = 0; t < 4; t++) {
+        const key = companyKeys[Math.floor(hash01(step * 7 + t) * companyKeys.length)];
+        const signal = (smoothPart(key, step + NEWS_HORIZON) - smoothPart(key, step)) / stockInfo[key].basePrice;
+        if (Math.abs(signal) < 0.05) continue;
+        let dir = signal > 0 ? 'up' : 'down';
+        // 5回に1回くらいは、ニュースと はんたいに うごく
+        if (hash01(step * 13 + 5) < 0.2) dir = dir === 'up' ? 'down' : 'up';
+        const list = newsTemplates[key][dir];
+        const text = list[Math.floor(hash01(step * 3 + 1) * list.length)];
+        return { step, key, dir, text };
+      }
+      return null;
+    };
+
+    const stepToLabel = (step) => {
+      const d = new Date(2024, 0, 1 + Math.floor(step / 2));
+      return `${d.getMonth() + 1}月${d.getDate()}日 ${step % 2 === 0 ? 'ごぜん' : 'ごご'}`;
+    };
+
     const App = () => {
       const [gameState, setGameState] = useState('TITLE'); 
       const [isLoading, setIsLoading] = useState(true);
@@ -211,6 +291,9 @@
       const canvasRef = useRef(null);
       const tabContainerRef = useRef(null);
       const messageTimerRef = useRef(null);
+      const [newsSeenStep, setNewsSeenStep] = useState(() => {
+        try { return parseInt(localStorage.getItem('ontama_news_seen') || '0', 10); } catch (e) { return 0; }
+      });
       const [canvasSizeKey, setCanvasSizeKey] = useState(0);
 
       const [touchStartPos, setTouchStartPos] = useState({ x: null, y: null });
@@ -648,6 +731,15 @@
       const totalAssets = coin + stockValue;
       const totalProfit = stockValue - stockCost;
 
+      // ★おんたまニュース
+      const latestNews = getNewsForStep(currentStep);
+      const hasUnreadNews = !!latestNews && newsSeenStep < currentStep;
+      const openNews = () => {
+        setGameState('NEWS');
+        setNewsSeenStep(currentStep);
+        try { localStorage.setItem('ontama_news_seen', String(currentStep)); } catch (e) {}
+      };
+
       // 関数として呼ぶ（コンポーネントにすると 毎回つくりなおされるため）
       const renderStatusHeader = () => (
         <div className="flex justify-around items-center bg-white/95 px-3 sm:px-4 py-1 sm:py-2 rounded-full shadow-sm w-full max-w-2xl mb-2 border border-gray-200 z-20 shrink-0 gap-1">
@@ -714,12 +806,23 @@
                 >
                   💼 じぶんの かぶ
                 </button>
-                <button 
-                  onClick={() => setGameState('TUTORIAL')}
-                  className="bg-mustard text-bluegrey py-3.5 rounded-full shadow-md text-lg font-bold active:translate-y-1 transition-transform border-4 border-white flex justify-center items-center gap-2"
-                >
-                  📖 つかいかた
-                </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={openNews}
+                    className="bg-white text-bluegrey py-3.5 rounded-full shadow-md text-base sm:text-lg font-bold active:translate-y-1 transition-transform border-4 border-white flex justify-center items-center gap-1 relative"
+                  >
+                    📰 ニュース
+                    {hasUnreadNews && (
+                      <span className="absolute -top-2 -right-1 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full border-2 border-white shadow animate-pulse">NEW</span>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => setGameState('TUTORIAL')}
+                    className="bg-mustard text-bluegrey py-3.5 rounded-full shadow-md text-base sm:text-lg font-bold active:translate-y-1 transition-transform border-4 border-white flex justify-center items-center gap-1"
+                  >
+                    📖 つかいかた
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -819,6 +922,9 @@
                       >
                         <span className="text-2xl mb-1">{info.icon}</span>
                         <span className="text-[10px] leading-tight text-center w-full overflow-hidden text-ellipsis">{info.name}</span>
+                        {latestNews && latestNews.key === key && (
+                          <span className="absolute -top-1.5 -left-1.5 bg-white text-[11px] w-5 h-5 flex items-center justify-center rounded-full shadow-sm border border-gray-200">📰</span>
+                        )}
                         {hasStock && (
                           <span className="absolute -top-1.5 -right-1.5 bg-terracotta text-white text-[10px] px-1.5 py-0.5 rounded-full shadow-sm border border-white">
                             {portfolio[key].qty}
@@ -854,6 +960,19 @@
                     
                     <p className="text-xs text-gray-600 font-bold mb-1 bg-gray-50 p-1.5 rounded pointer-events-none">{stockInfo[selectedStock].desc}</p>
                     
+                    {latestNews && latestNews.key === selectedStock && (
+                      <button
+                        onClick={openNews}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
+                        className={`text-left px-2 py-1.5 rounded text-[11px] sm:text-xs font-bold mb-2 flex items-start gap-1.5 border relative z-10 ${latestNews.dir === 'up' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-blue-50 border-blue-200 text-blue-700'}`}
+                      >
+                        <span>📰</span>
+                        <span className="flex-1">ニュース：{latestNews.text}</span>
+                        <span className="text-gray-400 shrink-0">›</span>
+                      </button>
+                    )}
+
                     {stockInfo[selectedStock].dividend > 0 && (
                       <div className="bg-mustard/20 text-yellow-700 px-2 py-1 rounded text-[10px] sm:text-xs font-bold mb-2 flex items-center gap-1 pointer-events-none border border-mustard/30">
                         <span>🎁</span> 毎月10日・20日に 1かぶ {stockInfo[selectedStock].dividend} コインもらえる！
@@ -1042,6 +1161,109 @@
             </div>
           )}
 
+
+          {gameState === 'NEWS' && (() => {
+            // さいきん 4日ぶん（8回ぶん）の ニュース
+            const newsList = [];
+            for (let st = currentStep; st > currentStep - 8; st--) {
+              const n = getNewsForStep(st);
+              if (n) newsList.push(n);
+            }
+            const results = newsList.map(n => {
+              const startPrice = calculatePrice(n.key, n.step);
+              const doneStep = n.step + NEWS_HORIZON;
+              const isDone = currentStep >= doneStep;
+              const endPrice = calculatePrice(n.key, isDone ? doneStep : currentStep);
+              const diff = endPrice - startPrice;
+              const isHit = diff !== 0 && ((diff > 0) === (n.dir === 'up'));
+              return { ...n, startPrice, endPrice, diff, isDone, isHit, leftSteps: doneStep - currentStep };
+            });
+            const doneResults = results.filter(r => r.isDone);
+            const hitCount = doneResults.filter(r => r.isHit).length;
+
+            return (
+              <div className="w-full h-full flex flex-col items-center">
+                <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-1.5 rounded-full text-sm font-bold shadow-sm mb-2">
+                  ← もどる
+                </button>
+
+                {renderStatusHeader()}
+
+                <div className="w-full max-w-2xl flex-1 flex flex-col bg-paper rounded-lg shadow-xl p-3 sm:p-4 relative animate-open-note border border-white overflow-hidden">
+                  <div className="masking-tape masking-tape-terracotta"></div>
+
+                  {/* 新聞の題字 */}
+                  <div className="shrink-0 mt-3 mb-2 text-center border-y-4 border-double border-bluegrey py-1.5">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-bluegrey tracking-[0.2em] font-kyokasho">📰 おんたま新聞</h2>
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-bold mt-0.5">{dateStr}（{timeStr}）　・　半日ごとに あたらしい ニュースが とどくよ</p>
+                  </div>
+
+                  <div className="shrink-0 bg-mustard/20 border border-mustard/40 rounded-lg px-3 py-2 mb-3 text-[11px] sm:text-xs font-bold text-yellow-800 leading-relaxed">
+                    💡 ニュースは「これから 1日くらいの ねだん」の ヒント。でも <span className="text-red-600">はずれる ことも ある</span> よ！
+                    {doneResults.length > 0 && (
+                      <span className="block mt-0.5 text-bluegrey">さいきんの こたえあわせ：{doneResults.length}こ中 <span className="text-red-500">{hitCount}こ あたり</span></span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto pr-1 pb-2">
+                    {results.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-gray-500 opacity-60">
+                        <span className="text-6xl mb-4">☕</span>
+                        <p className="font-bold text-lg">きょうは しずかな 一日。</p>
+                      </div>
+                    ) : results.map((r, i) => {
+                      const info = stockInfo[r.key];
+                      const isLatest = r.step === currentStep;
+                      const good = r.dir === 'up';
+                      return (
+                        <div key={r.step} className={`bg-white rounded-xl shadow-sm border-2 mb-3 p-3 animate-pop-in ${isLatest ? 'border-bluegrey' : 'border-gray-200'}`}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                              {isLatest && <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">いま</span>}
+                              <span className="text-[10px] sm:text-xs text-gray-400 font-bold">{stepToLabel(r.step)}</span>
+                            </div>
+                            <span className={`text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full ${good ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                              {good ? '😊 いいニュース' : '😟 しんぱいな ニュース'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-start gap-2">
+                            <span className="text-3xl bg-gray-50 p-1.5 rounded-lg shrink-0">{info.icon}</span>
+                            <div className="flex-1">
+                              <p className="text-[11px] font-bold mb-0.5" style={{ color: info.color }}>{info.name}</p>
+                              <p className={`font-bold text-bluegrey leading-snug font-kyokasho ${isLatest ? 'text-lg sm:text-xl' : 'text-base'}`}>{r.text}</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 pt-2 border-t border-dashed border-gray-200 flex items-center justify-between gap-2">
+                            <div className="text-[11px] sm:text-xs font-bold text-gray-500">
+                              {r.isDone ? 'その後 1日で：' : `いまのところ（こたえあわせ まで あと${r.leftSteps}回）：`}
+                              <span className="text-bluegrey">{r.startPrice}C → {r.endPrice}C </span>
+                              <span className={r.diff > 0 ? 'text-red-500' : r.diff < 0 ? 'text-blue-600' : 'text-gray-500'}>
+                                {r.diff > 0 ? `▲+${r.diff}` : r.diff < 0 ? `▼${r.diff}` : '▶0'}
+                              </span>
+                              {r.isDone && (
+                                <span className={`ml-1.5 px-1.5 py-0.5 rounded ${r.isHit ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}>
+                                  {r.isHit ? '⭕ あたり' : '❌ はずれ'}
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => { setSelectedStock(r.key); setGameState('MARKET'); }}
+                              className="bg-bluegrey text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-bold shadow-sm active:scale-95 transition-transform shrink-0"
+                            >
+                              📈 見る
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {gameState === 'TUTORIAL' && (
             <div className="w-full h-full flex flex-col items-center">
               <button onClick={() => setGameState('TITLE')} className="self-start bg-white/90 text-bluegrey px-4 py-1.5 rounded-full text-sm font-bold shadow-sm mb-2">
@@ -1115,7 +1337,7 @@
                     </div>
                   </div>
 
-                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 mb-2 relative" style={{ borderColor: '#b8860b' }}>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 relative" style={{ borderColor: '#b8860b' }}>
                     <div className="absolute -top-4 -left-3 w-8 h-8 text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10" style={{ backgroundColor: '#b8860b' }}>5</div>
                     <h3 className="font-bold text-lg mb-2 pl-3" style={{ color: '#b8860b' }}>🧺 おんたま平均ってなに？</h3>
                     <p className="text-sm text-gray-700 mb-3 pl-3">10社 ぜんぶの ねだんの <b>へいきん</b> の かぶ だよ。どこかの会社が 下がっても、ほかの会社が 上がれば うめあわせ できるから、<b>ねだんの うごきが おだやか</b> なんだ。</p>
@@ -1125,6 +1347,19 @@
                       <span className="text-3xl">🧺</span>
                     </div>
                     <p className="text-[11px] text-gray-500 font-bold mt-2 pl-3">「たまごは ひとつの カゴに もるな」＝ いろいろに 分けておくと あんしん、という ことわざ だよ。</p>
+                  </div>
+
+                  <div className="bg-white p-4 rounded-xl shadow-sm border-2 border-bluegrey mt-6 mb-2 relative">
+                    <div className="absolute -top-4 -left-3 w-8 h-8 bg-bluegrey text-white rounded-full flex items-center justify-center font-bold text-xl border-2 border-white shadow-sm z-10">6</div>
+                    <h3 className="font-bold text-lg text-bluegrey mb-2 pl-3">📰 おんたまニュースを 読もう</h3>
+                    <p className="text-sm text-gray-700 mb-3 pl-3">半日ごとに 会社の ニュースが とどくよ。<b className="text-red-500">いいニュース</b> の かぶは 上がりやすく、<b className="text-blue-600">しんぱいな ニュース</b> の かぶは 下がりやすい。でも <b>はずれる ことも ある</b> から、1日たったら こたえあわせ してみよう！</p>
+                    <div className="flex justify-center items-center gap-3 bg-gray-50 py-3 rounded-lg border border-gray-100 mx-1 sm:mx-3 text-center">
+                      <span className="text-3xl">📰</span>
+                      <span className="text-xl font-bold text-gray-400">➡</span>
+                      <span className="text-3xl">🤔</span>
+                      <span className="text-xl font-bold text-gray-400">➡</span>
+                      <span className="text-3xl">⭕❌</span>
+                    </div>
                   </div>
 
                 </div>
